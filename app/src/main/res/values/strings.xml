@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 正式名称：相位（Phase）。历史名「智能闹钟」「睡眠计算器」见 NAMING.md。 -->
+    <string name="app_name">相位</string>
+</resources>

@@ -1,0 +1,4 @@
+<resources>
+    <string name="alarm_assist_name">系统时钟辅助</string>
+    <string name="alarm_assist_description">仅在相位中点击设置闹钟后，查找系统时钟中相同时间的一次性闹钟，启用并打开；确认没有时才创建。只处理系统时钟，不读取其他应用，不联网。识别失败、超时、离开时钟或时钟版本变化时停止。可随时关闭本权限。</string>
+</resources>

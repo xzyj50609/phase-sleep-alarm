@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Soft cast shadow keeps the alarm face grounded under adaptive masks. -->
+    <path
+        android:fillAlpha="0.22"
+        android:fillColor="#050816"
+        android:pathData="M28,80C28,75.6 80,75.6 80,80C80,84.4 28,84.4 28,80z" />
+
+    <!-- Alarm bells are slightly wider than the face for faster recognition at small sizes. -->
+    <path
+        android:fillColor="#8DBBFF"
+        android:pathData="M33,29C28,22 18,24 16,33C14,40 19,45 27,45C27.5,39 29.5,33 33,29z" />
+    <path
+        android:fillColor="#8DBBFF"
+        android:pathData="M75,29C80,22 90,24 92,33C94,40 89,45 81,45C80.5,39 78.5,33 75,29z" />
+    <path
+        android:fillAlpha="0.40"
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,33C24,29 29,27 33,29C30,31 27.8,34.5 26.5,39C23,38.5 21,36.5 22,33z" />
+    <path
+        android:fillAlpha="0.40"
+        android:fillColor="#FFFFFF"
+        android:pathData="M86,33C84,29 79,27 75,29C78,31 80.2,34.5 81.5,39C85,38.5 87,36.5 86,33z" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M45,25C47,18 61,18 63,25"
+        android:strokeColor="#DCEBFF"
+        android:strokeLineCap="round"
+        android:strokeWidth="5" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M39,80L34,87" 
+        android:strokeColor="#9FC6FF"
+        android:strokeLineCap="round"
+        android:strokeWidth="5" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M69,80L74,87"
+        android:strokeColor="#9FC6FF"
+        android:strokeLineCap="round"
+        android:strokeWidth="5" />
+
+    <path
+        android:fillColor="#DCEBFF"
+        android:pathData="M54,54m-30,0a30,30 0,1 0,60 0a30,30 0,1 0,-60 0" />
+    <path
+        android:fillAlpha="0.28"
+        android:fillColor="#7EA8FF"
+        android:pathData="M24,54C24,70.6 37.4,84 54,84C70.6,84 84,70.6 84,54H78C78,67.3 67.3,78 54,78C40.7,78 30,67.3 30,54z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54m-24,0a24,24 0,1 0,48 0a24,24 0,1 0,-48 0" />
+    <path
+        android:fillAlpha="0.45"
+        android:fillColor="#EEF6FF"
+        android:pathData="M35,45C39,35 49,31 59,32C49,34 41,39 35,48z" />
+
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,34L54,38M54,70L54,74M34,54L38,54M70,54L74,54"
+        android:strokeColor="#6C7F9E"
+        android:strokeLineCap="round"
+        android:strokeWidth="2" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M54,54L54,40M54,54L43,63"
+        android:strokeColor="#0B1F49"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="4" />
+    <path
+        android:fillColor="#FFB44C"
+        android:pathData="M54,54m-3.2,0a3.2,3.2 0,1 0,6.4 0a3.2,3.2 0,1 0,-6.4 0" />
+
+    <path
+        android:fillAlpha="0.72"
+        android:fillColor="#6E8DFF"
+        android:pathData="M65,39C62,40 60,43 60,47C60,51 63,54 67,55C64,52 63,49 63,46C63,43 64,41 65,39z" />
+</vector>

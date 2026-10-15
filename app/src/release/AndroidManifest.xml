@@ -1,0 +1,6 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <application android:allowBackup="false" tools:replace="android:allowBackup">
+        <!-- Historical accessibility automation is retained in source/debug only. -->
+        <service android:name=".bridge.AlarmAssistService" tools:node="remove" />
+    </application>
+</manifest>
