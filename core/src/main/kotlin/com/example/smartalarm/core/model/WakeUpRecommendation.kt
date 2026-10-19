@@ -16,4 +16,6 @@ data class WakeUpRecommendation(
     val cycles: Int? = null,
     /** Length of the morning re-sleep or daytime nap, for RESLEEP / SHORT_NAP. */
     val napMinutes: Int? = null,
+    /** Scenario times for full-cycle candidates only; fixed targets have none. */
+    val wakeOptions: List<WakeOption> = emptyList(),
 )

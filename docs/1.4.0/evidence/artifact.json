@@ -1,0 +1,28 @@
+{
+  "apk_sha256": "d8367020f278279a6d5ab0263544b099c3c865330836b8298e7ca612ef1b532f",
+  "licenses": {
+    "LICENSE": "8a75f04a8638292bb658684074cd296ee4428f7cf139158c237ce8e995118b0f",
+    "THIRD-PARTY-NOTICES.md": "9da42d7ad7cf9262cc54b377782a679be0d69455f2c046621dbe1f56c356a4bf",
+    "Apache-2.0.txt": "3ddf9be5c28fe27dad143a5dc76eea25222ad1dd68934a047064e56ed2fa40c5",
+    "libsu-LICENSE.txt": "1eb85fc97224598dad1852b5d6483bbcf0aa8608790dcc657a5a2a761ae9c8c6"
+  },
+  "icons": {
+    "ic_launcher_background.xml": {
+      "source_equals_worktree": true,
+      "apk_vector_equals_source": true,
+      "elements": 2
+    },
+    "ic_launcher_foreground.xml": {
+      "source_equals_worktree": true,
+      "apk_vector_equals_source": true,
+      "elements": 5
+    },
+    "ic_launcher_monochrome.xml": {
+      "source_equals_worktree": true,
+      "apk_vector_equals_source": true,
+      "elements": 5
+    }
+  },
+  "version": "1.4.0 (17)",
+  "adaptive_monochrome_present": true
+}

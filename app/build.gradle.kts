@@ -4,6 +4,12 @@ plugins {
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+val syncLicenseAssets by tasks.registering(Sync::class) {
+    from(rootProject.file("LICENSE"), rootProject.file("THIRD-PARTY-NOTICES.md"))
+    from(rootProject.file("licenses")) { include("*.txt") }
+    into(layout.buildDirectory.dir("generated/licenseAssets/licenses"))
+}
+
 android {
     namespace = "com.example.smartalarm"
     compileSdk = 35
@@ -12,8 +18,8 @@ android {
         applicationId = "com.example.smartalarm"
         minSdk = 26
         targetSdk = 35
-        versionCode = 16
-        versionName = "1.3.1"
+        versionCode = 17
+        versionName = "1.4.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -60,7 +66,10 @@ android {
         compose = true
         aidl = true
     }
+    sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/licenseAssets"))
 }
+
+tasks.named("preBuild") { dependsOn(syncLicenseAssets) }
 
 dependencies {
     implementation(project(":core"))

@@ -1,6 +1,7 @@
 package com.example.smartalarm.bridge
 
 import android.content.Context
+import android.app.AlarmManager
 import android.os.Handler
 import android.os.Looper
 import android.os.Process
@@ -12,9 +13,15 @@ import com.example.smartalarm.data.*
 import com.example.smartalarm.root.FaultInjectingGateway
 import com.example.smartalarm.root.RootClockGateway
 import java.time.LocalTime
+import java.time.Instant
 import java.time.ZoneId
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.resume
+
+private const val PREVIOUS_ALARM_TIMEOUT_MILLIS = 5_000L
 
 sealed interface SetUiState {
     data object Idle : SetUiState
@@ -42,6 +49,8 @@ class AlarmSetController internal constructor(
     private val launchStandard: ((ClockChoice, Int, Int, String) -> Boolean)? = null,
     private val watchdogMillis: Long = 10_000L,
     private val stateObserver: ((SetUiState) -> Unit)? = null,
+    private val previousAlarmTimeoutMillis: Long = PREVIOUS_ALARM_TIMEOUT_MILLIS,
+    private val nextAlarmMillis: (() -> Long?)? = null,
 ) {
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
@@ -52,6 +61,7 @@ class AlarmSetController internal constructor(
     private val clocks = StandardClockResolver(app)
     private val worker = Executors.newSingleThreadExecutor()
     private val warmer = Executors.newSingleThreadExecutor()
+    private val inspector = Executors.newSingleThreadExecutor()
     @Volatile private var createdBackend: RootBackend? = null
     private val backend by lazy {
         (backendFactory?.invoke() ?: RootClockGateway(app).let { real ->
@@ -75,6 +85,39 @@ class AlarmSetController internal constructor(
         runCatching { gate.current()?.stage?.terminal == false || inFlight.load() != null }.getOrDefault(true)
 
     private data class Request(val target: LocalTime, val label: String, val log: SleepLogEntry?)
+
+    fun lastOperation(): AlarmOperation? = runCatching { gate.current() }.getOrNull()
+
+    /** Read-only, bounded independently of a blocking binder call; never occupies the write worker. */
+    suspend fun checkPreviousAlarm(operation: AlarmOperation, now: Instant = Instant.now()): PreviousAlarmStatus {
+        if (isLocked) return PreviousAlarmStatus.UNKNOWN
+        val delivery = mode
+        val zone = ZoneId.systemDefault()
+        val target = operation.time()
+        val result = withTimeoutOrNull(previousAlarmTimeoutMillis) {
+            suspendCancellableCoroutine<PreviousAlarmStatus> { continuation ->
+                val future = inspector.submit {
+                    val status = runCatching {
+                        if (delivery == DeliveryMode.ROOT) {
+                            // A snapshot from a different clock cannot establish absence in the old clock.
+                            if (checkedRootIdentity().clockPackage != operation.identity.clockPackage) PreviousAlarmStatus.UNKNOWN
+                            else {
+                                backend.verifyAuthorization()
+                                rootPreviousAlarmStatus(backend.gateway.readSnapshot(), target)
+                            }
+                        } else {
+                            val next = nextAlarmMillis?.invoke() ?: if (nextAlarmMillis == null)
+                                checkNotNull(app.getSystemService(AlarmManager::class.java)).nextAlarmClock?.triggerTime else null
+                            standardPreviousAlarmStatus(next, target, now, zone)
+                        }
+                    }.getOrDefault(PreviousAlarmStatus.UNKNOWN)
+                    if (continuation.isActive) continuation.resume(status)
+                }
+                continuation.invokeOnCancellation { future.cancel(true) }
+            }
+        } ?: PreviousAlarmStatus.UNKNOWN
+        return if (isLocked || mode != delivery || ZoneId.systemDefault() != zone) PreviousAlarmStatus.UNKNOWN else result
+    }
 
     private fun publish(value: SetUiState) {
         check(Looper.myLooper() == Looper.getMainLooper())

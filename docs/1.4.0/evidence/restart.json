@@ -1,0 +1,8 @@
+{
+  "seed_tests": 1,
+  "process_restarted": true,
+  "durable_banner_visible": true,
+  "alarm_dispatch_requested": false,
+  "serial": "emulator-5590",
+  "installed_apk_sha256": "d8367020f278279a6d5ab0263544b099c3c865330836b8298e7ca612ef1b532f"
+}

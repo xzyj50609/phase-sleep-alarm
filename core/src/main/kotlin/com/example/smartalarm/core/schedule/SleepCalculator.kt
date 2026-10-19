@@ -211,6 +211,7 @@ class SleepCalculator {
             label = if (cycles == 1) "回笼 1 个完整周期" else "回笼 $cycles 个周期",
             reason = "回笼按完整周期睡，自然浮回浅睡再醒，起得舒服——${format(wake)} 正式起。",
             napMinutes = napMinutes,
+            wakeOptions = wakeOptions(input, cycles, wake, nightMinutes + napMinutes),
         )
     }
 
@@ -262,6 +263,7 @@ class SleepCalculator {
                 label = "$cycles 个周期 · ${formatDuration(totalMin)}",
                 reason = cycleReason(cycles),
                 cycles = cycles,
+                wakeOptions = wakeOptions(input, cycles, sleepStart.plusMinutes(totalMin.toLong()), totalMin),
             )
         }
 
@@ -333,6 +335,7 @@ class SleepCalculator {
             label = "1 个完整周期",
             reason = "睡完一整个周期自然浮回浅睡，小睡的正经睡法。",
             cycles = 1,
+            wakeOptions = wakeOptions(input, 1, sleepStart.plusMinutes(input.cycleMinutes.toLong()), input.cycleMinutes),
         )
         val twoCycles = WakeUpRecommendation(
             wakeUpTime = sleepStart.plusMinutes(input.cycleMinutes * 2L),
@@ -342,6 +345,7 @@ class SleepCalculator {
             label = "2 个完整周期",
             reason = "缺觉狠补用：两个周期睡到位，注意别影响晚上入睡。",
             cycles = 2,
+            wakeOptions = wakeOptions(input, 2, sleepStart.plusMinutes(input.cycleMinutes * 2L), input.cycleMinutes * 2),
         )
         val candidates = listOf(shortNap, oneCycle, twoCycles)
             .distinctBy { it.wakeUpTime }

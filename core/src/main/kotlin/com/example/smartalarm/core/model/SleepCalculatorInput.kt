@@ -23,4 +23,7 @@ data class SleepCalculatorInput(
     val morningTarget: LocalTime = LocalTime.of(9, 0),
     /** Minimum hours of sleep the catch-up (爽睡) mode should secure. */
     val minCatchUpHours: Int = 9,
+    /** Adjustable modelling assumptions, not measured confidence intervals. */
+    val latencyUncertaintyMinutes: Int = 10,
+    val cycleUncertaintyMinutes: Int = 8,
 )

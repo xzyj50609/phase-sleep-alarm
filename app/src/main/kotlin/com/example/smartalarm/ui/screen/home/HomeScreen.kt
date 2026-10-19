@@ -54,14 +54,15 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartalarm.bridge.AlarmSetController
 import com.example.smartalarm.bridge.SetUiState
-import com.example.smartalarm.bridge.buildAlarmMessage
+import com.example.smartalarm.bridge.requestRecommendation
 import com.example.smartalarm.core.model.AlarmMode
 import com.example.smartalarm.core.interaction.DeliveryMode
 import com.example.smartalarm.core.model.SleepCalculatorInput
 import com.example.smartalarm.core.model.WakeUpRecommendation
+import com.example.smartalarm.core.model.WakeOption
 import com.example.smartalarm.core.schedule.SleepCalculator
 import com.example.smartalarm.data.PrefsHelper
-import com.example.smartalarm.data.SleepLogStore
+import com.example.smartalarm.ui.component.ModeSlider
 import com.example.smartalarm.ui.component.NightTimeline
 import com.example.smartalarm.ui.component.QualityBadge
 import com.example.smartalarm.ui.component.QualityDot
@@ -85,7 +86,6 @@ fun HomeScreen(
     val context = LocalContext.current
     val setController = remember { AlarmSetController.get(context) }
     val setState = setController.state
-    val versionText = remember { appVersionText(context) }
     LaunchedEffect(Unit) { setController.prepare() }
 
     // 反馈卡片在按钮下方，失败时它的“用系统方式新建”按钮可能被挤出屏幕；状态一变就把整张卡片滚进可视区域
@@ -176,23 +176,11 @@ fun HomeScreen(
         onDispose { context.unregisterReceiver(receiver); lifecycle?.removeObserver(observer) }
     }
 
-    fun requestAlarm(recommendation: WakeUpRecommendation) {
+    fun requestAlarm(recommendation: WakeUpRecommendation, option: WakeOption? = null) {
         if (timeChanged) { timeChanged = false; return }
         prefs.lastDelay = selectedDelay
         prefs.lastMode = selectedMode
-        val message = buildAlarmMessage(
-            wakeUpTime = recommendation.wakeUpTime,
-            modeLabel = selectedMode.chineseLabel(),
-            totalSleepMin = recommendation.sleepMinutes,
-        )
-        val logEntry = SleepLogStore.entryNow(
-            bedTime = bedTime,
-            wakeTime = recommendation.wakeUpTime,
-            modeName = selectedMode.name,
-            sleepMinutes = recommendation.sleepMinutes,
-            qualityName = recommendation.quality.name,
-        )
-        setController.request(recommendation.wakeUpTime, message, logEntry)
+        setController.requestRecommendation(recommendation, bedTime, selectedMode, option)
     }
 
     Column(
@@ -204,7 +192,6 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         TopBar(
-            versionText = versionText,
             now = now,
             onOpenHistory = onOpenHistory,
             onOpenSettings = onOpenSettings,
@@ -221,10 +208,16 @@ fun HomeScreen(
             Text("系统时间已变化，已重新计算；点此确认后再设置")
         }
 
-        ModeSelector(
+        ModeSlider(
             selected = selectedMode,
             onSelect = { selectedMode = it },
         )
+
+        RecalculationNotice(setController, System.currentTimeMillis()) {
+            pinnedBedTime = null
+            now = LocalTime.now()
+            chosenLabel = null
+        }
 
         HeroCard(
             recommendation = chosen,
@@ -236,6 +229,8 @@ fun HomeScreen(
             isSetting = setState is SetUiState.Working,
             submitBlocked = setController.isLocked,
             onCreateAlarm = { requestAlarm(chosen) },
+            rootMode = setController.mode == DeliveryMode.ROOT,
+            onChooseOption = { requestAlarm(chosen, it) },
         )
 
         SetAlarmFeedbackCard(
@@ -253,7 +248,13 @@ fun HomeScreen(
 
         if (output.alternatives.size > 1) {
             SectionLabel("其他睡法")
-            AlternativesCard(
+            if (setController.mode == DeliveryMode.ROOT) RootAlternativesCard(
+                output = output,
+                chosen = chosen,
+                enabled = !setController.isLocked,
+                onChoose = { chosenLabel = it.label },
+                onRequest = { recommendation, option -> requestAlarm(recommendation, option) },
+            ) else AlternativesCard(
                 output = output,
                 chosen = chosen,
                 onChoose = { chosenLabel = it.label },
@@ -312,7 +313,6 @@ private val weekdayNames = mapOf(
 
 @Composable
 private fun TopBar(
-    versionText: String,
     now: LocalTime,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
@@ -320,7 +320,7 @@ private fun TopBar(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "相位 · $versionText",
+                text = "相位",
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -341,51 +341,9 @@ private fun TopBar(
         IconButton(onClick = onOpenSettings) {
             Icon(
                 imageVector = Icons.Outlined.Tune,
-                contentDescription = "睡眠参数",
+                contentDescription = "设置",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-        }
-    }
-}
-
-@Composable
-private fun ModeSelector(
-    selected: AlarmMode,
-    onSelect: (AlarmMode) -> Unit,
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(3.dp),
-    ) {
-        AlarmMode.entries.forEach { mode ->
-            val isSelected = mode == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(9.dp))
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primary
-                        else androidx.compose.ui.graphics.Color.Transparent,
-                    )
-                    .clickable { onSelect(mode) }
-                    .padding(vertical = 12.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = mode.chineseLabel(),
-                    color = if (isSelected) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    fontSize = 13.sp,
-                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                    maxLines = 1,
-                )
-            }
         }
     }
 }
@@ -401,6 +359,8 @@ private fun HeroCard(
     isSetting: Boolean,
     submitBlocked: Boolean,
     onCreateAlarm: () -> Unit,
+    rootMode: Boolean,
+    onChooseOption: (WakeOption) -> Unit,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -438,6 +398,8 @@ private fun HeroCard(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+
+            if (!rootMode) TimingUncertaintyHint(recommendation)
 
             NightTimeline(
                 bedTime = bedTime,
@@ -481,6 +443,9 @@ private fun HeroCard(
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(if (isSetting) "正在设置…" else if (submitBlocked) "请先确认上次操作" else "设为系统闹钟", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            }
+            if (rootMode && recommendation.wakeOptions.isNotEmpty()) {
+                WakeOptionButtons(recommendation.wakeOptions, !submitBlocked, onChooseOption)
             }
         }
     }
@@ -558,7 +523,7 @@ private fun AlternativesCard(
 }
 
 @Composable
-private fun RecommendedChip() {
+internal fun RecommendedChip() {
     Box(
         modifier = Modifier
             .padding(start = 8.dp)

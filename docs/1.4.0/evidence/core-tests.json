@@ -1,0 +1,94 @@
+{
+  "tests": 84,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 0,
+  "regression_inputs": 540,
+  "frozen_oracle_commit": "6589a12",
+  "frozen_oracle_matches_commit": true,
+  "unchanged_files": [
+    "core/src/main/kotlin/com/example/smartalarm/core/interaction/AlarmSetter.kt",
+    "core/src/main/kotlin/com/example/smartalarm/core/model/AlarmMode.kt",
+    "app/src/main/kotlin/com/example/smartalarm/bridge/StandardClockResolver.kt",
+    "app/src/main/kotlin/com/example/smartalarm/data/PrefsHelper.kt",
+    "app/src/main/kotlin/com/example/smartalarm/data/SleepLogStore.kt",
+    "app/src/main/kotlin/com/example/smartalarm/data/AlarmOperationStore.kt",
+    "app/src/main/kotlin/com/example/smartalarm/ui/component/WheelPicker.kt"
+  ],
+  "inputs_card_unchanged": true,
+  "dependencies_unchanged": true,
+  "home_lines": 717,
+  "classes": [
+    {
+      "name": "com.example.smartalarm.core.interaction.AlarmOperationTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.interaction.AlarmRequestGuardTest",
+      "tests": "3",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.interaction.AlarmSetterTest",
+      "tests": "24",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.interaction.ClockAlarmListParserTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.interaction.ClockAlarmPolicyTest",
+      "tests": "8",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.interaction.ClockAlarmSnapshotTest",
+      "tests": "7",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.interaction.PreviousAlarmTest",
+      "tests": "5",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.schedule.RecommendationRegressionTest",
+      "tests": "1",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.schedule.SleepCalculatorTest",
+      "tests": "17",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    },
+    {
+      "name": "com.example.smartalarm.core.schedule.WakeOptionsTest",
+      "tests": "6",
+      "failures": "0",
+      "errors": "0",
+      "skipped": "0"
+    }
+  ],
+  "dst_overlap_and_gap_verified": true
+}
