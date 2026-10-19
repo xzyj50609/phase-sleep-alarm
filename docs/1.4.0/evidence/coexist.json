@@ -1,0 +1,20 @@
+{
+  "serial": "emulator-5590",
+  "apk_sha256": "f997c76180a1b715d2d5f401788ae37a3985e79a782ffc7ca4f27bc5a1533ba5",
+  "com.example.smartalarm": {
+    "version": "1.2.0",
+    "uid": "10221",
+    "launch": "ok"
+  },
+  "com.example.smartalarm.test": {
+    "version": "1.4.0-test",
+    "uid": "10217",
+    "launch": "ok"
+  },
+  "old_apk_unchanged": true,
+  "old_uid_unchanged": true,
+  "old_data_marker_preserved": true,
+  "test_cannot_read_old_data": true,
+  "test_home_visible": true,
+  "installed_apk_sha256": "f997c76180a1b715d2d5f401788ae37a3985e79a782ffc7ca4f27bc5a1533ba5"
+}

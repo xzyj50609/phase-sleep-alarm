@@ -39,6 +39,12 @@ android {
     }
 
     buildTypes {
+        create("coexist") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".test"
+            versionNameSuffix = "-test"
+            matchingFallbacks += listOf("debug")
+        }
         release {
             val official = signingConfigs.getByName("official")
             signingConfig = if (official.storeFile != null) official else signingConfigs.getByName("debug")
@@ -67,6 +73,8 @@ android {
         aidl = true
     }
     sourceSets.getByName("main").assets.srcDir(layout.buildDirectory.dir("generated/licenseAssets"))
+    // 共存包复用正式版直通实现，不带 files/fault.txt 控制的验收注入。
+    sourceSets.getByName("coexist").java.srcDir("src/release/kotlin")
 }
 
 tasks.named("preBuild") { dependsOn(syncLicenseAssets) }
