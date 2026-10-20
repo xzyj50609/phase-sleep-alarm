@@ -45,6 +45,14 @@ class Phase140UiTest {
         device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight * 9 / 20, 30)
         device.waitForIdle()
     }
+    private fun scrollToTop() {
+        // Same page margin as scrollPageDown: the number wheels in the middle would swallow the gesture.
+        val x = device.displayWidth / 12
+        repeat(6) {
+            device.swipe(x, device.displayHeight * 9 / 20, x, device.displayHeight * 7 / 8, 30)
+            device.waitForIdle()
+        }
+    }
     private fun scrollTo(selector: BySelector): UiObject2 {
         val deadline = System.currentTimeMillis() + 30_000
         while (System.currentTimeMillis() < deadline) {
@@ -104,29 +112,42 @@ class Phase140UiTest {
         }
     }
 
+    /** The emulator normally runs with animations off; motion tests must switch them on explicitly. */
+    private fun withAppAnimated(scale: String = "1", block: (AlarmSetController) -> Unit) = withApp(false) { controller ->
+        val old = device.executeShellCommand("settings get global animator_duration_scale").trim()
+        try {
+            device.executeShellCommand("settings put global animator_duration_scale $scale")
+            block(controller)
+        } finally { device.executeShellCommand("settings put global animator_duration_scale $old") }
+    }
+
     @Test fun ordinary_hint_about_version_and_all_license_sources_are_visible() = withApp(false) {
         seen(By.text("正常")).click()
-        seen(By.text("时间可以微调"))
-        seen(By.textContains("前后大约 20 分钟内都算正常"))
+        scrollTo(By.text("时间可以微调"))
+        scrollTo(By.textContains("前后大约 20 分钟内都算正常"))
         assertFalse(device.hasObject(By.descStartsWith("睡得快 ")))
         assertFalse(device.hasObject(By.textContains("v1.4.0")))
         capture("ordinary")
+        scrollToTop()
         seen(By.desc("设置")).click()
         scrollTo(By.text("关于相位"))
-        seen(By.textContains("1.4.1 (18)"))
+        seen(By.textContains("1.4.7 (24)"))
         capture("about")
         scrollTo(By.text("开源许可")).click()
         val content = seen(By.textContains("MIT License")).text
-        for (source in listOf("THIRD-PARTY-NOTICES.md", "Apache-2.0.txt", "libsu-LICENSE.txt")) assertTrue(content.contains(source))
+        for (source in listOf("THIRD-PARTY-NOTICES.md", "Apache-2.0.txt", "libsu-LICENSE.txt", "NotoSansSC-OFL.txt", "NotoSerifSC-OFL.txt", "SmileySans-OFL.txt")) assertTrue(content.contains(source))
         capture("licenses")
         seen(By.text("关闭")).click()
     }
 
     @Test fun root_actual_time_button_and_text_selection_take_different_paths() = withApp(true) { controller ->
         seen(By.text("正常")).click()
+        scrollTo(By.text("设为系统闹钟"))
+        scrollPageDown() // the hero's three wake options sit just below the button; the hint (ordinary mode only) would follow them
         assertFalse(device.hasObject(By.text("时间可以微调")))
         capture("root")
-        val button = scrollTo(By.descStartsWith("躺得久 "))
+        seen(By.descStartsWith("躺得久 "))
+        val button = device.findObjects(By.descStartsWith("躺得久 ")).minByOrNull { it.visibleBounds.top }!! // topmost = the hero card's
         val target = LocalTime.parse(button.contentDescription.substringAfter(' '))
         button.click()
         val deadline = System.currentTimeMillis() + 10_000
@@ -218,6 +239,221 @@ class Phase140UiTest {
         assertTrue(selectedMode("爽睡").isSelected)
     }
 
+    private fun dp(value: Float) = value * context.resources.displayMetrics.density
+
+    /**
+     * One synthetic finger. Event times are virtual (10 ms apart for flicks, [stepMs] for slow drags), so the
+     * speed the app measures does not depend on how quickly the emulator happens to inject the events.
+     */
+    private inner class Finger(private var x: Float, private val y: Float) {
+        private val downTime = SystemClock.uptimeMillis()
+        private var elapsed = 0L
+        private fun send(action: Int) {
+            val event = MotionEvent.obtain(downTime, downTime + elapsed, action, x, y, 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            try { assertTrue(instrumentation.uiAutomation.injectInputEvent(event, true)) } finally { event.recycle() }
+        }
+        fun down() = send(MotionEvent.ACTION_DOWN)
+        fun moveBy(px: Float, steps: Int, stepMs: Long = 0) {
+            repeat(steps) {
+                elapsed += if (stepMs > 0) stepMs else 10L
+                x += px / steps
+                send(MotionEvent.ACTION_MOVE)
+                if (stepMs > 0) Thread.sleep(stepMs)
+            }
+        }
+        fun up() { elapsed += 5; send(MotionEvent.ACTION_UP) }
+    }
+
+    private fun cardFinger() = Finger(device.displayWidth * 3f / 4, seen(By.text("建议这时候醒")).visibleCenter.y + dp(12f))
+
+    /** The hero card's title line ("5 个周期 · 7 小时 55 分" or "1 个完整周期"), the first one below the eyebrow; it differs between the three time-independent modes. */
+    private fun heroSummary(): String {
+        val eyebrowTop = seen(By.text("建议这时候醒")).visibleBounds.top
+        return device.findObjects(By.textContains("周期"))
+            .filter { it.visibleBounds.top > eyebrowTop }
+            .minByOrNull { it.visibleBounds.top }?.text ?: error("hero title not found")
+    }
+
+    private fun waitForHero(expected: String) {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (System.currentTimeMillis() < deadline && heroSummary() != expected) Thread.sleep(50)
+        assertEquals(expected, heroSummary())
+    }
+
+    private fun pixelAt(x: Int, y: Int): Int {
+        val shot = instrumentation.uiAutomation.takeScreenshot()
+        try { return shot.getPixel(x, y) } finally { shot.recycle() }
+    }
+
+    private fun thumbCenterIn(shot: android.graphics.Bitmap, thumbColor: Int, rowY: Int): Float {
+        fun close(c: Int) = listOf(16, 8, 0).all { shift -> kotlin.math.abs(((c shr shift) and 0xFF) - ((thumbColor shr shift) and 0xFF)) <= 10 }
+        val xs = (0 until shot.width).filter { close(shot.getPixel(it, rowY)) }
+        check(xs.isNotEmpty()) { "thumb not found" }
+        return (xs.first() + xs.last()) / 2f
+    }
+
+    /** Horizontal centre of the thumb (pixels matching [thumbColor]) on a screen row above the label text. */
+    private fun thumbCenter(thumbColor: Int, rowY: Int): Float {
+        val shot = instrumentation.uiAutomation.takeScreenshot()
+        try { return thumbCenterIn(shot, thumbColor, rowY) } finally { shot.recycle() }
+    }
+
+    /** The text colour inside [bounds]: the pixel farthest from the area's dominant (background) colour. */
+    private fun inkColor(shot: android.graphics.Bitmap, bounds: android.graphics.Rect): Int {
+        val pixels = IntArray(bounds.width() * bounds.height())
+        shot.getPixels(pixels, 0, bounds.width(), bounds.left, bounds.top, bounds.width(), bounds.height())
+        val background = pixels.groupBy { it }.maxByOrNull { it.value.size }!!.key
+        fun distance(a: Int, b: Int) = listOf(16, 8, 0).sumOf { kotlin.math.abs(((a shr it) and 0xFF) - ((b shr it) and 0xFF)) }
+        return pixels.maxByOrNull { distance(it, background) }!!
+    }
+
+    @Test fun slider_label_colours_follow_the_thumb_instead_of_flipping_at_once() = withApp(false) {
+        seen(By.text("正常")).click()
+        Thread.sleep(600)
+        val oldBounds = seen(By.text("正常")).visibleBounds
+        val newBounds = seen(By.text("爽睡")).visibleBounds
+        val row = oldBounds.centerY() - dp(12f).toInt()
+        val segment = (newBounds.centerX() - oldBounds.centerX()).toFloat()
+        val resting = instrumentation.uiAutomation.takeScreenshot()
+        val thumbColor = resting.getPixel(oldBounds.centerX(), row)
+        val restCentre = thumbCenterIn(resting, thumbColor, row)
+        val selectedInk = inkColor(resting, oldBounds)
+        val unselectedInk = inkColor(resting, newBounds)
+        resting.recycle()
+        fun distance(a: Int, b: Int) = listOf(16, 8, 0).sumOf { kotlin.math.abs(((a shr it) and 0xFF) - ((b shr it) and 0xFF)) }
+        assertTrue("selected and unselected labels must differ at rest", distance(selectedInk, unselectedInk) > 150)
+        val oldScale = device.executeShellCommand("settings get global animator_duration_scale").trim()
+        try {
+            device.executeShellCommand("settings put global animator_duration_scale 30") // slow motion: lets screenshots catch mid-transition, even when the machine is slow
+            Thread.sleep(300)
+            device.click(newBounds.centerX(), newBounds.centerY())
+            // Catch the first frame where the thumb has visibly started (but not reached 25% of the way).
+            var early: android.graphics.Bitmap? = null
+            val deadline = System.currentTimeMillis() + 10_000
+            while (early == null && System.currentTimeMillis() < deadline) {
+                val shot = instrumentation.uiAutomation.takeScreenshot()
+                val moved = thumbCenterIn(shot, thumbColor, row) - restCentre
+                if (moved in 4f..(segment * 0.25f)) early = shot
+                else { shot.recycle(); if (moved > segment * 0.25f) break }
+            }
+            val mid = checkNotNull(early) { "never caught the thumb in the first quarter of its way" }
+            val leaving = inkColor(mid, oldBounds)
+            val arriving = inkColor(mid, newBounds)
+            File(context.getExternalFilesDir(null), "phase140-slider-mid.png").outputStream().use {
+                mid.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+            android.util.Log.i("PhaseSlow", "selectedInk=%08x unselectedInk=%08x leaving=%08x arriving=%08x".format(
+                selectedInk, unselectedInk, leaving, arriving))
+            mid.recycle()
+            assertTrue("the label the thumb is still on must still look selected",
+                distance(leaving, selectedInk) < distance(leaving, unselectedInk))
+            assertTrue("the label the thumb has barely reached must still look unselected",
+                distance(arriving, unselectedInk) < distance(arriving, selectedInk))
+        } finally { device.executeShellCommand("settings put global animator_duration_scale $oldScale") }
+        Thread.sleep(600)
+        assertTrue(selectedMode("爽睡").isSelected)
+    }
+
+    @Test fun light_card_drag_moves_slider_partly_and_both_return_without_switching() = withAppAnimated {
+        seen(By.text("正常")).click()
+        Thread.sleep(600)
+        val first = seen(By.text("正常")).visibleCenter
+        val second = seen(By.text("爽睡")).visibleCenter
+        val row = first.y - dp(12f).toInt()
+        val before = heroSummary()
+        val thumbColor = pixelAt(first.x, row)
+        val rest = thumbCenter(thumbColor, row)
+        val finger = cardFinger()
+        finger.down()
+        try {
+            finger.moveBy(-dp(40f), 12, 15)
+            Thread.sleep(250)
+            val fraction = (thumbCenter(thumbColor, row) - rest) / (second.x - first.x)
+            capture("light-drag-held")
+            assertTrue("slider thumb must follow a light drag only partly, was $fraction", fraction in 0.08f..0.55f)
+            assertTrue("mode must not change while dragging", selectedMode("正常").isSelected)
+        } finally { finger.up() }
+        Thread.sleep(900)
+        assertTrue(selectedMode("正常").isSelected)
+        assertEquals("slider thumb must return to its own segment", rest, thumbCenter(thumbColor, row), 3f)
+        assertEquals("card content must be untouched", before, heroSummary())
+    }
+
+    @Test fun slow_drag_past_half_a_step_switches_and_slider_and_card_land_together() = withAppAnimated {
+        seen(By.text("正常")).click()
+        Thread.sleep(600)
+        val first = seen(By.text("正常")).visibleCenter
+        val second = seen(By.text("爽睡")).visibleCenter
+        val row = first.y - dp(12f).toInt()
+        val before = heroSummary()
+        val thumbColor = pixelAt(first.x, row)
+        val finger = cardFinger()
+        finger.down()
+        try {
+            finger.moveBy(-dp(100f), 20, 15)
+            Thread.sleep(250)
+            val fraction = (thumbCenter(thumbColor, row) - first.x) / (second.x - first.x)
+            assertTrue("thumb should be most of the way across, was $fraction", fraction in 0.45f..1.0f)
+            assertTrue("mode is committed only on release", selectedMode("正常").isSelected)
+        } finally { finger.up() }
+        assertTrue(selectedMode("爽睡").isSelected)
+        Thread.sleep(900)
+        assertEquals("slider thumb must settle on the new segment", second.x.toFloat(), thumbCenter(thumbColor, row), 4f)
+        assertNotEquals("card must now show the new mode", before, heroSummary())
+    }
+
+    @Test fun tiny_flick_is_ignored_and_clear_flick_moves_exactly_one_mode() = withAppAnimated {
+        seen(By.text("正常")).click()
+        Thread.sleep(600)
+        val before = heroSummary()
+        cardFinger().apply { down(); moveBy(-dp(24f), 2); up() }
+        Thread.sleep(900)
+        assertTrue("a tiny flick must not switch", selectedMode("正常").isSelected)
+        assertEquals(before, heroSummary())
+        cardFinger().apply { down(); moveBy(-dp(64f), 3); up() }
+        Thread.sleep(900)
+        assertTrue("a clear fast flick moves one mode", selectedMode("爽睡").isSelected)
+        assertNotEquals(before, heroSummary())
+    }
+
+    @Test fun rapid_swipes_and_taps_end_with_slider_and_card_on_the_same_mode() = withAppAnimated {
+        val summaries = mutableMapOf<String, String>()
+        for (label in listOf("正常", "爽睡", "小睡")) {
+            seen(By.text(label)).click()
+            Thread.sleep(700)
+            summaries[label] = heroSummary()
+        }
+        assertEquals("the three modes must show different cards", 3, summaries.values.toSet().size)
+        seen(By.text("正常")).click()
+        Thread.sleep(700)
+        val plan = listOf(-1, -1, 1, -1, 1, 1, 1, -1, -1, 1)  // -1 = swipe left (next mode), 1 = right; never leaves 正常..小睡
+        var ordinal = 0
+        for (direction in plan) {
+            cardFinger().apply { down(); moveBy(direction * dp(110f), 4); up() }
+            ordinal = (ordinal - direction).coerceIn(0, 2)
+            Thread.sleep(70)
+        }
+        val label = listOf("正常", "爽睡", "小睡")[ordinal]
+        Thread.sleep(1_000)
+        assertTrue("slider must end on $label", selectedMode(label).isSelected)
+        waitForHero(summaries.getValue(label))
+    }
+
+    @Test fun card_swipe_with_system_animations_off_still_lands_on_one_mode() = withApp(false) {
+        seen(By.text("正常")).click()
+        Thread.sleep(600)
+        val before = heroSummary()
+        val oldScale = device.executeShellCommand("settings get global animator_duration_scale").trim()
+        try {
+            device.executeShellCommand("settings put global animator_duration_scale 0")
+            cardFinger().apply { down(); moveBy(-dp(110f), 4); up() }
+            assertTrue(selectedMode("爽睡").isSelected)
+            Thread.sleep(500)
+            assertNotEquals(before, heroSummary())
+        } finally { device.executeShellCommand("settings put global animator_duration_scale $oldScale") }
+    }
+
     @Test fun root_mode_dialog_cancel_keeps_standard_and_confirm_waits_for_admission() = withApp(false) { controller ->
         seen(By.desc("设置")).click()
         seen(By.text("root（实验性）")).click()
@@ -228,13 +464,13 @@ class Phase140UiTest {
         seen(By.text("root（实验性）")).click()
         seen(By.text("申请授权")).click()
         awaitRootSelection(controller)
-        seen(By.text("✓ root（实验性）"))
+        selectedMode("root（实验性）")
         assertNull(controller.lastOperation())
     }
 
     @Test fun ordinary_fixed_nap_has_no_hint_and_cycle_nap_uses_core_offset() = withApp(false) { controller ->
         seen(By.text("小睡")).click()
-        seen(By.textContains("前后大约 13 分钟内都算正常"))
+        scrollTo(By.textContains("前后大约 13 分钟内都算正常"))
         scrollTo(By.text("短睡 25 分钟")).click()
         device.findObject(By.scrollable(true))?.fling(Direction.UP)
         device.waitForIdle()
@@ -256,7 +492,7 @@ class Phase140UiTest {
         device.waitForIdle()
         assertFalse(device.hasObject(By.text("时间可以微调")))
         seen(By.text("正常")).click()
-        seen(By.textContains("前后大约 20 分钟内都算正常"))
+        scrollTo(By.textContains("前后大约 20 分钟内都算正常"))
     }
 
     @Test fun durable_recalculation_banner_and_inactive_alarm_do_not_show_warning() {

@@ -1,14 +1,9 @@
 package com.example.smartalarm.ui.theme
 
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.sp
 
 /**
  * "月光夜空" palette — the app is used at 00:30-01:30 with dark-adapted eyes,
@@ -26,6 +21,9 @@ object NightColors {
     val Ink = Color(0xFFE2E6F0)
     val InkMuted = Color(0xFF8D95A9)
     val Outline = Color(0xFF343B4E)
+
+    /** 比 SurfaceHigh 再亮一档：悬浮层（对话框、菜单）和开关关闭态的轨道。 */
+    val SurfaceHighest = Color(0xFF30364A)
 
     /** Wake-quality encoding: muted tones so the dots inform, not glare. */
     val Easy = Color(0xFF95C3A4)
@@ -52,57 +50,24 @@ private val MoonlightDark = darkColorScheme(
     outlineVariant = NightColors.Outline,
     error = NightColors.Groggy,
     onError = NightColors.OnMoon,
-)
-
-/**
- * Type pairing: light-weight tabular numerals give the hero time the feel of
- * a bedside clock; monospace carries small data labels (status line,
- * timeline ticks, history table) like instrument markings. Both come from
- * system families — no bundled fonts.
- */
-private val ClockTypography = Typography(
-    // Hero wake-up time — the one thing the sleepy user came for.
-    displayLarge = TextStyle(
-        fontWeight = FontWeight.Light,
-        fontSize = 72.sp,
-        letterSpacing = (-2).sp,
-        fontFeatureSettings = "tnum",
-    ),
-    // Secondary times (bedtime, candidate rows).
-    headlineMedium = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 26.sp,
-        letterSpacing = (-0.5).sp,
-        fontFeatureSettings = "tnum",
-    ),
-    titleMedium = TextStyle(
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-    ),
-    bodyLarge = TextStyle(
-        fontSize = 16.sp,
-        lineHeight = 24.sp,
-    ),
-    bodyMedium = TextStyle(
-        fontSize = 14.sp,
-        lineHeight = 21.sp,
-    ),
-    bodySmall = TextStyle(
-        fontSize = 12.sp,
-        lineHeight = 18.sp,
-    ),
-    // Section eyebrows.
-    labelLarge = TextStyle(
-        fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
-        letterSpacing = 2.sp,
-    ),
-    // Instrument labels: status line, timeline ticks, history table.
-    labelSmall = TextStyle(
-        fontFamily = FontFamily.Monospace,
-        fontSize = 11.sp,
-        letterSpacing = 0.5.sp,
-    ),
+    // 以下容器色以前没设，Material 组件（卡片、对话框、开关）会退回默认的灰紫色，和夜空底色不搭。
+    surfaceDim = NightColors.Background,
+    surfaceBright = NightColors.SurfaceHighest,
+    surfaceContainerLowest = NightColors.Background,
+    surfaceContainerLow = NightColors.Surface,
+    surfaceContainer = NightColors.Surface,
+    surfaceContainerHigh = NightColors.SurfaceHigh,
+    surfaceContainerHighest = NightColors.SurfaceHighest,
+    secondaryContainer = NightColors.SurfaceHigh,
+    onSecondaryContainer = NightColors.Ink,
+    tertiaryContainer = NightColors.SurfaceHigh,
+    onTertiaryContainer = NightColors.Moderate,
+    errorContainer = Color(0xFF3A2A31),
+    onErrorContainer = NightColors.Groggy,
+    inverseSurface = NightColors.Ink,
+    inverseOnSurface = NightColors.Background,
+    inversePrimary = Color(0xFF4A5C8F),
+    scrim = Color.Black,
 )
 
 @Composable
@@ -111,7 +76,7 @@ fun SmartAlarmTheme(
 ) {
     MaterialTheme(
         colorScheme = MoonlightDark,
-        typography = ClockTypography,
+        typography = PhaseTypography,
         content = content,
     )
 }

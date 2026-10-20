@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -119,6 +120,7 @@ fun HistoryScreen(onBack: () -> Unit) {
         ) {
             item(key = "record-meaning") {
                 Text("这里记录计划睡眠与闹钟确认，不是手环测得的实际睡眠。", style = MaterialTheme.typography.bodySmall,
+                    fontFamily = com.example.smartalarm.ui.theme.PhaseFonts.body,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             item(key = "nav") {
@@ -178,8 +180,9 @@ fun HistoryScreen(onBack: () -> Unit) {
                 item(key = "list-header") {
                     Text(
                         text = "这段时间的记录",
-                        style = MaterialTheme.typography.labelLarge,
+                        style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(start = 4.dp, top = 4.dp),
                     )
                 }
                 item(key = "list") {
@@ -228,12 +231,12 @@ private fun ViewToggle(current: HistoryView, onSelect: (HistoryView) -> Unit) {
                     .background(
                         if (isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
                     )
-                    .clickable { onSelect(value) }
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                    .selectable(selected = isSelected, role = androidx.compose.ui.semantics.Role.Tab) { onSelect(value) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
             ) {
                 Text(
                     text = value.label,
-                    fontSize = 12.sp,
+                    fontSize = 13.sp,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     color = if (isSelected) {
                         MaterialTheme.colorScheme.onPrimary
@@ -353,6 +356,8 @@ private fun StatBlock(label: String, value: String, modifier: Modifier = Modifie
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
+            fontFamily = com.example.smartalarm.ui.theme.PhaseFonts.clock,
+            fontWeight = FontWeight.Medium,
             color = MaterialTheme.colorScheme.onSurface,
         )
     }

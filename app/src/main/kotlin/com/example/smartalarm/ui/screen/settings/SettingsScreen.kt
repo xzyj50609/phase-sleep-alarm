@@ -1,5 +1,6 @@
 package com.example.smartalarm.ui.screen.settings
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,12 +32,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.smartalarm.data.PrefsHelper
 import com.example.smartalarm.bridge.AlarmSetController
 import com.example.smartalarm.core.interaction.DeliveryMode
+import com.example.smartalarm.ui.component.SegmentedChoice
 import com.example.smartalarm.ui.component.TimeEditDialog
+import com.example.smartalarm.ui.theme.PhaseFonts
 import com.example.smartalarm.ui.component.WheelPicker
 import java.time.LocalTime
 
@@ -92,26 +99,49 @@ fun SettingsScreen(onBack: () -> Unit) {
             )
         }
 
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(Modifier.padding(16.dp)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        ) {
+            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("闹钟设置方式", style = MaterialTheme.typography.titleSmall)
-                Row {
-                    TextButton(onClick = { controller.selectMode(DeliveryMode.STANDARD) }, enabled = !operationLocked || controller.checkingRoot) {
-                        Text(if (controller.mode == DeliveryMode.STANDARD) "✓ 普通" else "普通")
-                    }
-                    TextButton(onClick = { if (controller.mode == DeliveryMode.ROOT) Unit else confirmRoot = true }, enabled = !operationLocked) {
-                        Text(if (controller.mode == DeliveryMode.ROOT) "✓ root（实验性）" else "root（实验性）")
-                    }
-                }
-                if (controller.checkingRoot) Text("正在等待 Root 授权并核验，当前仍为普通模式。可点“普通”取消。")
-                controller.rootModeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                Text(if (controller.mode == DeliveryMode.STANDARD)
+                SegmentedChoice(
+                    options = listOf(DeliveryMode.STANDARD, DeliveryMode.ROOT),
+                    selected = controller.mode,
+                    label = { if (it == DeliveryMode.STANDARD) "普通" else "root（实验性）" },
+                    onSelect = {
+                        if (it == DeliveryMode.STANDARD) controller.selectMode(DeliveryMode.STANDARD)
+                        else if (controller.mode != DeliveryMode.ROOT) confirmRoot = true
+                    },
+                    isEnabled = {
+                        if (it == DeliveryMode.STANDARD) !operationLocked || controller.checkingRoot else !operationLocked
+                    },
+                )
+                if (controller.checkingRoot) NoteText("正在等待 Root 授权并核验，当前仍为普通模式。可点“普通”取消。")
+                controller.rootModeError?.let { NoteText(it, MaterialTheme.colorScheme.error) }
+                NoteText(if (controller.mode == DeliveryMode.STANDARD)
                     "无需特殊权限。交给所选时钟，保存后回相位确认。"
-                    else "实验性功能，普通用户请勿开启。需要 root 授权，只适配 Android 16、ColorOS 时钟 16.19.14、简体中文（中国）主用户；会通过 root 直接读写系统时钟的闹钟，当前版本没有在真实 root 手机上回归。",
-                    style = MaterialTheme.typography.bodySmall)
-                if (operationLocked && !controller.checkingRoot) Text("有操作尚未确认，请先回首页核对。")
-                TextButton(onClick = { controller.chooseClock(); onBack() }, enabled = !operationLocked) {
-                    Text("选择普通模式时钟 · ${controller.clockName}")
+                    else "实验性功能，普通用户请勿开启。需要 root 授权，只适配 Android 16、ColorOS 时钟 16.19.14、简体中文（中国）主用户；会通过 root 直接读写系统时钟的闹钟，当前版本没有在真实 root 手机上回归。")
+                if (operationLocked && !controller.checkingRoot) NoteText("有操作尚未确认，请先回首页核对。")
+                HorizontalDivider(color = MaterialTheme.colorScheme.outline)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable(enabled = !operationLocked) { controller.chooseClock(); onBack() }
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("选择普通模式时钟", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurface)
+                        Text(controller.clockName, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -174,10 +204,21 @@ fun SettingsScreen(onBack: () -> Unit) {
             text = "周期长度可以用手环校准：连续记几晚，看深浅睡交替的间隔大约多少分钟。" +
                 "必醒时刻的开关和时间在首页「今晚的条件」里调。",
             style = MaterialTheme.typography.bodySmall,
+            fontFamily = PhaseFonts.body,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         AboutPhase()
     }
+}
+
+@Composable
+private fun NoteText(text: String, color: Color = Color.Unspecified) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodySmall,
+        fontFamily = PhaseFonts.body,
+        color = if (color == Color.Unspecified) MaterialTheme.colorScheme.onSurfaceVariant else color,
+    )
 }
 
 @Composable
@@ -239,6 +280,8 @@ private fun TimeParamRow(
             Text(
                 text = "%02d:%02d".format(value.hour, value.minute),
                 style = MaterialTheme.typography.titleMedium,
+                fontFamily = PhaseFonts.clock,
+                fontWeight = FontWeight.Medium,
                 color = MaterialTheme.colorScheme.primary,
             )
         }

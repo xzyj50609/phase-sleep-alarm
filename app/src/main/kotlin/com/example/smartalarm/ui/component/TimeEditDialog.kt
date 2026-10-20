@@ -30,7 +30,6 @@ fun TimeEditDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
         title = { Text(title, style = MaterialTheme.typography.titleMedium) },
         text = { TimeInput(state = state) },
         confirmButton = {

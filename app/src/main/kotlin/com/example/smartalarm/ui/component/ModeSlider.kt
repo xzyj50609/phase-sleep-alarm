@@ -1,7 +1,8 @@
 package com.example.smartalarm.ui.component
 
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.gestures.draggable
@@ -17,6 +18,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
@@ -27,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.smartalarm.core.model.AlarmMode
 import com.example.smartalarm.ui.screen.home.chineseLabel
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 @Composable
@@ -38,20 +41,21 @@ fun ModeSlider(selected: AlarmMode, onSelect: (AlarmMode) -> Unit, previewPositi
     LaunchedEffect(selected, dragging, previewPosition) {
         if (!dragging) {
             if (previewPosition != null) animation.snapTo(previewPosition)
-            else animation.animateTo(selected.ordinal.toFloat(), tween(240))
+            else animation.animateTo(selected.ordinal.toFloat(), spring(stiffness = Spring.StiffnessMediumLow))
         }
     }
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
+    val bodyFamily = MaterialTheme.typography.bodyLarge.fontFamily
     BoxWithConstraints(Modifier.fillMaxWidth().height(52.dp).systemGestureExclusion()
         .clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceVariant).padding(3.dp)) {
         val segmentWidth = maxWidth / modes.size
         val segmentPx = with(density) { segmentWidth.toPx() }
         // Fit the longest label using the real font metrics, including the system font scale.
-        val fontSize = remember(segmentPx, density.fontScale, textMeasurer) {
+        val fontSize = remember(segmentPx, density.fontScale, textMeasurer, bodyFamily) {
             var size = 13f
             while (size > 6f && modes.any { textMeasurer.measure(it.chineseLabel(),
-                    TextStyle(fontSize = size.sp, fontWeight = FontWeight.SemiBold), softWrap = false).size.width >
+                    TextStyle(fontFamily = bodyFamily, fontSize = size.sp, fontWeight = FontWeight.SemiBold), softWrap = false).size.width >
                     segmentPx - with(density) { 8.dp.toPx() } }) size -= 0.5f
             size.sp
         }
@@ -76,10 +80,11 @@ fun ModeSlider(selected: AlarmMode, onSelect: (AlarmMode) -> Unit, previewPositi
                     Box(Modifier.weight(1f).fillMaxHeight()
                         .selectable(selected = mode == selected, role = Role.Tab, onClick = { onSelect(mode) }),
                         contentAlignment = Alignment.Center) {
-                        val highlighted = if (dragging || previewPosition != null) position.roundToInt() == mode.ordinal else mode == selected
+                        // 文字颜色跟着滑块块实际走到哪里渐变，不跟“已选中”这个结果跳变。
+                        val closeness = (1f - abs(position - mode.ordinal)).coerceIn(0f, 1f)
                         Text(mode.chineseLabel(), maxLines = 1, softWrap = false, fontSize = fontSize,
-                            fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Normal,
-                            color = if (highlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            fontWeight = if (closeness > 0.5f) FontWeight.SemiBold else FontWeight.Normal,
+                            color = lerp(MaterialTheme.colorScheme.onSurfaceVariant, MaterialTheme.colorScheme.onPrimary, closeness))
                     }
                 }
             }

@@ -18,8 +18,8 @@ android {
         applicationId = "com.example.smartalarm"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "1.4.1"
+        versionCode = 24
+        versionName = "1.4.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         testApplicationId = "com.example.smartalarm.instrumentation"

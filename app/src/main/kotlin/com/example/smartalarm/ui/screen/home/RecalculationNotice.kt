@@ -1,6 +1,7 @@
 package com.example.smartalarm.ui.screen.home
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -20,7 +21,8 @@ internal fun RecalculationNotice(controller: AlarmSetController, refreshAtMillis
     var reminder by remember { mutableStateOf<Pair<LocalTime, PreviousAlarmStatus>?>(null) }
 
     if (visible && operation != null) {
-        Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
+        Card(Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
             Column(Modifier.padding(16.dp)) {
                 Text("躺了一个小时还没睡着，从现在重算。", style = MaterialTheme.typography.bodyMedium)
                 TextButton(enabled = !checking, onClick = recalculate@{

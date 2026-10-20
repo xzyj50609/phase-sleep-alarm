@@ -1,0 +1,18 @@
+{
+  "passed": false,
+  "test_count": null,
+  "bad_statuses": [
+    "-2"
+  ],
+  "adb_exit_code": 0,
+  "expected_apk_sha256": "7f88b717a12d3b96c27fba8f921472ff9ee5bdca6422e58b40605f59facdec57",
+  "observed_apk_sha256": null,
+  "elapsed_seconds": 145.24,
+  "classes": [
+    "com.example.smartalarm.Phase140UiTest#ordinary_hint_about_version_and_all_license_sources_are_visible",
+    "com.example.smartalarm.Phase140UiTest#root_mode_dialog_cancel_keeps_standard_and_confirm_waits_for_admission",
+    "com.example.smartalarm.Phase140UiTest#card_swipes_sync_slider_and_vertical_scroll_or_cancel_do_not_switch",
+    "com.example.smartalarm.Phase140UiTest#slider_label_colours_follow_the_thumb_instead_of_flipping_at_once",
+    "com.example.smartalarm.Phase140UiTest#rapid_swipes_and_taps_end_with_slider_and_card_on_the_same_mode"
+  ]
+}

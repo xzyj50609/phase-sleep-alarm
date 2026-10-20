@@ -71,4 +71,6 @@
 
 AndroidX Test runner、ext-junit、UI Automator 只用于测试 APK；不作为生产业务 SDK。构建工具 Gradle、AGP、Kotlin 的版本固定在源码中。
 
-Apache License 2.0 和 libsu 的许可文本随附在 licenses/。上游项目包括 AndroidX/AOSP、JetBrains Kotlin、Google Guava、JSpecify 和 topjohnwu/libsu。
+随应用分发的字体（均为裁剪后的修改版，许可均为 SIL Open Font License 1.1，全文见 `licenses/` 下对应文件）：`Noto Sans SC`（可变字重，`NotoSansSC-OFL.txt`）、`Noto Serif SC`（可变字重，`NotoSerifSC-OFL.txt`）、`Smiley Sans` 得意黑 v2.0.1（`SmileySans-OFL.txt`，版权 atelierAnchor，按许可要求已改名为 Phase Display SC）。每个文件保留约 4000 个字形，生成脚本见 `tools/build_phase_font.py`。
+
+Apache License 2.0、libsu 和上述字体的许可文本随附在 licenses/。上游项目包括 AndroidX/AOSP、JetBrains Kotlin、Google Guava、JSpecify 和 topjohnwu/libsu。

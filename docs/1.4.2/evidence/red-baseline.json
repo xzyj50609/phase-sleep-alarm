@@ -1,0 +1,13 @@
+{
+  "note": "新测试对 1.4.1 (18) 调试包（SHA-256 f99b4e1a...d140）的 RED 基线；该包即上次交付的同一份代码",
+  "apk_sha256": "f99b4e1a0e0afe58945f08be58e70bfb43e1c0afedecaf9bedb77483ada7d140",
+  "results": {
+    "tiny_flick_is_ignored_and_clear_flick_moves_exactly_one_mode": "失败：24dp 的很短快划被当成切换（旧规则：速度够就切，无最小距离）",
+    "slider_label_colours_follow_the_thumb_instead_of_flipping_at_once": "失败：滑块块刚走一点，两个名字的文字颜色已完全翻转（leaving=灰色 ff8d95a9，arriving=深色 ff10141f）",
+    "light_card_drag_moves_slider_partly_and_both_return_without_switching": "通过（旧版也满足；只作新版回归防线）",
+    "slow_drag_past_half_a_step_switches_and_slider_and_card_land_together": "通过（同上）",
+    "rapid_swipes_and_taps_end_with_slider_and_card_on_the_same_mode": "通过（同上）",
+    "card_swipe_with_system_animations_off_still_lands_on_one_mode": "通过（同上）"
+  },
+  "caveat": "第一版颜色测试因固定等待 250ms 读到「尚未变化」的画面而在旧版误通过，已改为轮询截图直到滑块块起步；表中是改后的结果"
+}

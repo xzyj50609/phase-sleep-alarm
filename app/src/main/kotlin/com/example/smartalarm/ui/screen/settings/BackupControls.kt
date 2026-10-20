@@ -3,13 +3,22 @@ package com.example.smartalarm.ui.screen.settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import com.example.smartalarm.bridge.AlarmSetController
 import com.example.smartalarm.data.LocalBackup
+import com.example.smartalarm.ui.component.LinkRow
 
 @Composable
 internal fun BackupControls(onImported: () -> Unit) {
@@ -43,12 +52,20 @@ internal fun BackupControls(onImported: () -> Unit) {
             pending = raw
         }.onFailure { message = "未导入，原数据保留：${it.message}" }
     }
-    Column {
-        TextButton(onClick = { export.launch("相位-设置与历史.json") }) { Text("导出设置与历史") }
-        TextButton(onClick = { import.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }, enabled = !controller.isLocked) {
-            Text("从文件恢复设置与历史")
+    Card(
+        Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
+        Column(Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Text("数据备份", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 2.dp))
+            LinkRow("导出设置与历史", onClick = { export.launch("相位-设置与历史.json") })
+            LinkRow("从文件恢复设置与历史", enabled = !controller.isLocked,
+                onClick = { import.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) })
+            if (message.isNotEmpty()) Text(message, style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp))
         }
-        if (message.isNotEmpty()) Text(message)
     }
     if (pending != null) AlertDialog(
         onDismissRequest = { pending = null }, title = { Text("恢复这份备份？") },

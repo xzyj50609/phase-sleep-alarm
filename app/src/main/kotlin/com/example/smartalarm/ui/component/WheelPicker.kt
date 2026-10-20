@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.smartalarm.ui.theme.PhaseFonts
 import kotlin.math.abs
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
@@ -130,6 +131,7 @@ fun <T> WheelPicker(
                     Text(
                         text = label(items[index]),
                         style = MaterialTheme.typography.titleMedium,
+                        fontFamily = PhaseFonts.clock,
                         fontWeight = if (isCentered) FontWeight.SemiBold else FontWeight.Normal,
                         color = if (isCentered) {
                             MaterialTheme.colorScheme.primary

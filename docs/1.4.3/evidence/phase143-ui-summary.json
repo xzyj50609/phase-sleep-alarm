@@ -1,0 +1,14 @@
+{
+  "passed": false,
+  "test_count": null,
+  "bad_statuses": [
+    "-2"
+  ],
+  "adb_exit_code": 0,
+  "expected_apk_sha256": "5bb73840518e6701467f51945fc338d5e6fc5137432182b9771444c07e991760",
+  "observed_apk_sha256": null,
+  "elapsed_seconds": 294.26,
+  "classes": [
+    "com.example.smartalarm.Phase140UiTest"
+  ]
+}

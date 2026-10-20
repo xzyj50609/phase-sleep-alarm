@@ -1,0 +1,12 @@
+{
+  "passed": true,
+  "test_count": 1,
+  "bad_statuses": [],
+  "adb_exit_code": 0,
+  "expected_apk_sha256": "7f88b717a12d3b96c27fba8f921472ff9ee5bdca6422e58b40605f59facdec57",
+  "observed_apk_sha256": null,
+  "elapsed_seconds": 38.74,
+  "classes": [
+    "com.example.smartalarm.Phase140UiTest#slider_label_colours_follow_the_thumb_instead_of_flipping_at_once"
+  ]
+}

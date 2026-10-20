@@ -1,0 +1,14 @@
+{
+  "passed": true,
+  "test_count": 3,
+  "bad_statuses": [],
+  "adb_exit_code": 0,
+  "expected_apk_sha256": "99012bbfeccb5213a431d00ac925a9ee3f53c2eff1deab90e6e9d202c52bad82",
+  "observed_apk_sha256": null,
+  "elapsed_seconds": 93.26,
+  "classes": [
+    "com.example.smartalarm.Phase140UiTest#font_scheme_choice_applies_at_once_and_survives_restart",
+    "com.example.smartalarm.Phase140UiTest#ordinary_hint_about_version_and_all_license_sources_are_visible",
+    "com.example.smartalarm.Phase140UiTest#root_mode_dialog_cancel_keeps_standard_and_confirm_waits_for_admission"
+  ]
+}

@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Alarm
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Tune
@@ -52,6 +53,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.smartalarm.ui.component.uiLabel
+import com.example.smartalarm.ui.theme.PhaseFonts
 import com.example.smartalarm.bridge.AlarmSetController
 import com.example.smartalarm.bridge.SetUiState
 import com.example.smartalarm.bridge.requestRecommendation
@@ -129,23 +132,22 @@ fun HomeScreen(
 
     var editingBedtime by remember { mutableStateOf(false) }
 
+    fun calculateFor(mode: AlarmMode) = calculator.calculate(
+        SleepCalculatorInput(
+            bedTime = bedTime,
+            fallAsleepMinutes = selectedDelay,
+            mode = mode,
+            cycleMinutes = cycleMinutes,
+            punchTime = punchTime.takeIf { punchEnabled },
+            resettleMinutes = resettleMinutes,
+            classTarget = classTarget,
+            morningTarget = morningTarget,
+        ),
+    )
     val output = remember(
         bedTime, selectedDelay, selectedMode, punchEnabled,
         cycleMinutes, resettleMinutes, punchTime, classTarget, morningTarget,
-    ) {
-        calculator.calculate(
-            SleepCalculatorInput(
-                bedTime = bedTime,
-                fallAsleepMinutes = selectedDelay,
-                mode = selectedMode,
-                cycleMinutes = cycleMinutes,
-                punchTime = punchTime.takeIf { punchEnabled },
-                resettleMinutes = resettleMinutes,
-                classTarget = classTarget,
-                morningTarget = morningTarget,
-            ),
-        )
-    }
+    ) { calculateFor(selectedMode) }
 
     // User's pick among candidates, tracked by stable label so it survives
     // the minute tick; reset when the mode changes.
@@ -194,7 +196,6 @@ fun HomeScreen(
         verticalArrangement = Arrangement.spacedBy(18.dp),
     ) {
         TopBar(
-            now = now,
             onOpenHistory = onOpenHistory,
             onOpenSettings = onOpenSettings,
         )
@@ -202,7 +203,8 @@ fun HomeScreen(
         Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 if (setController.mode == DeliveryMode.STANDARD) "普通模式 · ${setController.clockName}" else "root 模式（实验性）· ColorOS 时钟",
-                style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             TextButton(onClick = { setController.showClock() }) { Text("查看闹钟") }
         }
@@ -228,19 +230,23 @@ fun HomeScreen(
             "这版 ColorOS 时钟需手动填时间。点下方按钮打开新建页后，请设为 ${chosen.wakeUpTime.format(timeFormatter)} 并保存。",
             style = MaterialTheme.typography.bodySmall,
         )
-        SwipeModeCard(selectedMode, { selectedMode = it }, { modePreview = it }) {
+        SwipeModeCard(selectedMode, { selectedMode = it }, { modePreview = it }) { mode ->
+            // 滑出中的旧卡片按它自己的模式显示，并且不能再设闹钟：设闹钟只认当前选中模式的那张。
+            val current = mode == selectedMode
+            val cardOutput = if (current) output else calculateFor(mode)
+            val cardChosen = if (current) chosen else cardOutput.recommended
             HeroCard(
-                recommendation = chosen,
-                output = output,
+                recommendation = cardChosen,
+                output = cardOutput,
                 bedTime = bedTime,
                 fallAsleepMinutes = selectedDelay,
                 cycleMinutes = cycleMinutes,
                 punchTime = punchTime.takeIf { punchEnabled },
                 isSetting = setState is SetUiState.Working,
                 submitBlocked = setController.isLocked,
-                onCreateAlarm = { requestAlarm(chosen) },
+                onCreateAlarm = { if (current) requestAlarm(cardChosen) },
                 rootMode = setController.mode == DeliveryMode.ROOT,
-                onChooseOption = { requestAlarm(chosen, it) },
+                onChooseOption = { if (current) requestAlarm(cardChosen, it) },
             )
         }
 
@@ -257,7 +263,7 @@ fun HomeScreen(
             allowFallback = setController.mode == DeliveryMode.ROOT,
         )
 
-        if (output.alternatives.size > 1) {
+        if (output.alternatives.size > 1) Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionLabel("其他睡法")
             if (setController.mode == DeliveryMode.ROOT) RootAlternativesCard(
                 output = output,
@@ -272,28 +278,30 @@ fun HomeScreen(
             )
         }
 
-        SectionLabel("今晚的条件")
-        InputsCard(
-            bedTime = bedTime,
-            isPinned = pinnedBedTime != null,
-            onEditBedtime = { editingBedtime = true },
-            onUseNow = { pinnedBedTime = null },
-            selectedDelay = selectedDelay,
-            onDelayChange = { selectedDelay = it },
-            punchTime = punchTime,
-            onPunchTimeChange = {
-                punchTime = it
-                prefs.punchTime = it
-            },
-            punchEnabled = punchEnabled,
-            onPunchEnabledChange = {
-                punchEnabled = it
-                prefs.punchEnabled = it
-            },
-            punchIgnoredByMode = selectedMode == AlarmMode.NORMAL || selectedMode == AlarmMode.NAP,
-        )
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionLabel("今晚的条件")
+            InputsCard(
+                bedTime = bedTime,
+                isPinned = pinnedBedTime != null,
+                onEditBedtime = { editingBedtime = true },
+                onUseNow = { pinnedBedTime = null },
+                selectedDelay = selectedDelay,
+                onDelayChange = { selectedDelay = it },
+                punchTime = punchTime,
+                onPunchTimeChange = {
+                    punchTime = it
+                    prefs.punchTime = it
+                },
+                punchEnabled = punchEnabled,
+                onPunchEnabledChange = {
+                    punchEnabled = it
+                    prefs.punchEnabled = it
+                },
+                punchIgnoredByMode = selectedMode == AlarmMode.NORMAL || selectedMode == AlarmMode.NAP,
+            )
+        }
 
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(16.dp))
     }
 
     if (editingBedtime) {
@@ -324,24 +332,11 @@ private val weekdayNames = mapOf(
 
 @Composable
 private fun TopBar(
-    now: LocalTime,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
 ) {
+    // 左右各一个图标、中间是“相位”：对称的页眉，时间不再挤在左上角（它已经在“计划几点睡”里了）。
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = "相位",
-                style = MaterialTheme.typography.labelLarge,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = "现在 ${now.format(timeFormatter)} · " +
-                    (weekdayNames[LocalDateTime.now().dayOfWeek] ?: ""),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
         IconButton(onClick = onOpenHistory) {
             Icon(
                 imageVector = Icons.Outlined.History,
@@ -349,6 +344,17 @@ private fun TopBar(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        Text(
+            text = "相位",
+            style = MaterialTheme.typography.titleMedium,
+            fontFamily = PhaseFonts.clock,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 24.sp,
+            letterSpacing = 8.sp,
+            color = MaterialTheme.colorScheme.primary,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.weight(1f),
+        )
         IconButton(onClick = onOpenSettings) {
             Icon(
                 imageVector = Icons.Outlined.Tune,
@@ -385,7 +391,7 @@ private fun HeroCard(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "建议这时候醒",
-                    style = MaterialTheme.typography.labelLarge,
+                    style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
@@ -398,19 +404,30 @@ private fun HeroCard(
                 color = MaterialTheme.colorScheme.primary,
             )
 
-            Text(
-                text = "${recommendation.label} · 全晚睡 ${formatDuration(recommendation.sleepMinutes)}",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = recommendation.label,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontFamily = PhaseFonts.clock,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                // 周期类标题里已经写了总时长，不再重复；必醒、回笼这类标题没写，才补一行。
+                if (!recommendation.label.contains(formatDuration(recommendation.sleepMinutes))) {
+                    Text(
+                        text = "全晚睡 ${formatDuration(recommendation.sleepMinutes)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
 
             Text(
                 text = recommendation.reason,
                 style = MaterialTheme.typography.bodyMedium,
+                fontFamily = PhaseFonts.clock,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
-            if (!rootMode) TimingUncertaintyHint(recommendation)
 
             NightTimeline(
                 bedTime = bedTime,
@@ -439,6 +456,7 @@ private fun HeroCard(
                     .fillMaxWidth()
                     .height(54.dp),
                 shape = RoundedCornerShape(16.dp),
+                elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                 ),
@@ -458,6 +476,8 @@ private fun HeroCard(
             if (rootMode && recommendation.wakeOptions.isNotEmpty()) {
                 WakeOptionButtons(recommendation.wakeOptions, !submitBlocked, onChooseOption)
             }
+            // 说明放在设闹钟按钮之后：按钮要在不滚动的情况下就能点到。
+            if (!rootMode) TimingUncertaintyHint(recommendation)
         }
     }
 }
@@ -473,44 +493,34 @@ private fun AlternativesCard(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
     ) {
-        Column {
+        Column(modifier = Modifier.padding(vertical = 6.dp)) {
             output.alternatives.forEachIndexed { index, recommendation ->
                 val isChosen = recommendation == chosen
-                val isRecommended = recommendation == output.recommended
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 1.dp)
+                        // 选中行是圆角色块，不是贴满卡片宽度的直角条
+                        .clip(RoundedCornerShape(12.dp))
                         .background(
                             if (isChosen) MaterialTheme.colorScheme.surfaceVariant
                             else androidx.compose.ui.graphics.Color.Transparent,
                         )
                         .clickable { onChoose(recommendation) }
-                        .padding(horizontal = 16.dp, vertical = 13.dp),
+                        .padding(horizontal = 10.dp, vertical = 11.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(modifier = Modifier.weight(1f)) {
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text(
                             text = recommendation.label,
                             style = MaterialTheme.typography.bodyLarge,
+                            fontFamily = PhaseFonts.clock,
                             fontWeight = FontWeight.Medium,
                             color = MaterialTheme.colorScheme.onSurface,
                         )
-                        // 标签放在较短的第二行：放在第一行时，长标题会把它挤到只剩一个字宽，竖着排
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                text = "全晚睡 ${formatDuration(recommendation.sleepMinutes)}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                // 空间不够时让这行字自己换行，标签始终保留完整宽度
-                                modifier = Modifier.weight(1f, fill = false),
-                            )
-                            if (isRecommended) {
-                                RecommendedChip()
-                            }
-                        }
+                        RecommendationMeta(recommendation, recommendation == output.recommended)
                     }
-                    QualityDot(recommendation.quality)
-                    Spacer(Modifier.width(10.dp))
+                    Spacer(Modifier.width(12.dp))
                     Text(
                         text = recommendation.wakeUpTime.format(timeFormatter),
                         style = MaterialTheme.typography.headlineMedium,
@@ -524,12 +534,36 @@ private fun AlternativesCard(
                 }
                 if (index < output.alternatives.lastIndex) {
                     HorizontalDivider(
-                        modifier = Modifier.padding(horizontal = 16.dp),
-                        color = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.padding(horizontal = 18.dp),
+                        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.7f),
                     )
                 }
             }
         }
+    }
+}
+
+/**
+ * 候选行的第二行：醒来状态（圆点加文字，不只靠颜色）、必要时的“全晚睡”、推荐标记。
+ * 标题里已经写了总时长的周期类候选不再重复一遍。
+ */
+@Composable
+internal fun RecommendationMeta(recommendation: WakeUpRecommendation, recommended: Boolean) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        QualityDot(recommendation.quality)
+        Text(
+            text = buildString {
+                append(recommendation.quality.uiLabel())
+                if (!recommendation.label.contains(formatDuration(recommendation.sleepMinutes))) {
+                    append(" · 全晚睡 ").append(formatDuration(recommendation.sleepMinutes))
+                }
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            // 空间不够时让这行字自己换行，标签始终保留完整宽度
+            modifier = Modifier.padding(start = 6.dp).weight(1f, fill = false),
+        )
+        if (recommended) RecommendedChip()
     }
 }
 
@@ -546,7 +580,7 @@ internal fun RecommendedChip() {
             text = "推荐",
             maxLines = 1,
             softWrap = false,
-            fontSize = 10.sp,
+            fontSize = 11.sp,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.primary,
         )
@@ -586,15 +620,22 @@ private fun InputsCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    Text(
-                        text = if (isPinned) {
-                            bedTime.format(timeFormatter)
-                        } else {
-                            "${bedTime.format(timeFormatter)} · 跟随现在"
-                        },
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(
+                            text = bedTime.format(timeFormatter),
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (!isPinned) {
+                            // 时间是主角，“跟随现在”只是它的状态说明
+                            Text(
+                                text = "跟随现在 · " + (weekdayNames[LocalDateTime.now().dayOfWeek] ?: ""),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(start = 10.dp, bottom = 4.dp),
+                            )
+                        }
+                    }
                 }
                 if (isPinned) {
                     TextButton(onClick = onUseNow) {
@@ -605,6 +646,12 @@ private fun InputsCard(
                         text = "点击修改",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -662,6 +709,9 @@ private fun InputsCard(
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = MaterialTheme.colorScheme.primary,
                         checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
+                        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                        uncheckedBorderColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                     ),
                 )
             }
@@ -693,8 +743,9 @@ private fun InputsCard(
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        style = MaterialTheme.typography.labelLarge,
+        style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(start = 4.dp),
     )
 }
 

@@ -7,9 +7,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -41,7 +41,7 @@ fun NightTimeline(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(84.dp),
+            .height(80.dp),
     ) {
         val pad = 10.dp.toPx()
         val trackY = size.height * 0.48f
@@ -55,14 +55,23 @@ fun NightTimeline(
         val xSleep = xOf(sleepStart)
         val xWake = xOf(wakeTime)
 
-        // Falling asleep: dashed approach.
-        drawLine(
-            color = NightColors.Outline,
-            start = Offset(xBed, trackY),
-            end = Offset(xSleep, trackY),
-            strokeWidth = 3.dp.toPx(),
-            cap = StrokeCap.Round,
-            pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)),
+        // Falling asleep: a hollow marker at bedtime and a thin line to the moment of sleep
+        // (the old dashed round-capped stub read as a smudge at this size).
+        val ringRadius = 4.5.dp.toPx()
+        if (xSleep - xBed > ringRadius * 2) {
+            drawLine(
+                color = NightColors.Outline,
+                start = Offset(xBed + ringRadius, trackY),
+                end = Offset(xSleep, trackY),
+                strokeWidth = 2.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+        }
+        drawCircle(
+            color = NightColors.InkMuted,
+            radius = ringRadius,
+            center = Offset(xBed, trackY),
+            style = Stroke(width = 1.5.dp.toPx()),
         )
 
         if (punchTime != null && resleepStart != null &&
@@ -115,8 +124,8 @@ fun NightTimeline(
 
         // Labels below the track.
         val labelY = trackY + 16.dp.toPx()
-        drawTimeLabel(textMeasurer, format(bedTime), labelStyle, centerX = xBed, y = labelY)
-        drawTimeLabel(textMeasurer, "${format(wakeTime)} 起", wakeLabelStyle, centerX = xWake, y = labelY)
+        drawTimeLabel(textMeasurer, "${format(bedTime)} 躺下", labelStyle, centerX = xBed, y = labelY)
+        drawTimeLabel(textMeasurer, "${format(wakeTime)} 起床", wakeLabelStyle, centerX = xWake, y = labelY)
     }
 }
 
