@@ -79,6 +79,9 @@ class ControllerRegressionTest {
                 stateObserver = { if (Looper.myLooper() != Looper.getMainLooper()) offMainStateChanges++ },
             )
             c.selectMode(DeliveryMode.ROOT)
+        }
+        eventually { !c.checkingRoot }
+        onMain {
             c.request(target, "synthetic", SleepLogStore.entryNow(LocalTime.now(), target, "NORMAL", 120, "GOOD"))
         }
         assertTrue(entered.await(5, TimeUnit.SECONDS))
@@ -119,6 +122,9 @@ class ControllerRegressionTest {
                 rootIdentity = { AlarmIdentity("synthetic.clock", "synthetic", 1, 0, DeliveryMode.ROOT, "fake") },
                 navigateRoot = { _, _ -> navigation++; false })
             c.selectMode(DeliveryMode.ROOT)
+        }
+        eventually { !c.checkingRoot }
+        onMain {
             c.request(target, "synthetic", null)
         }
         eventually { c.state is SetUiState.Success }
@@ -146,6 +152,9 @@ class ControllerRegressionTest {
                 rootIdentity = { AlarmIdentity("synthetic.clock", "synthetic", 1, 0, DeliveryMode.ROOT, "fake") },
                 launchStandard = { _, _, _, _ -> true })
             c.selectMode(DeliveryMode.ROOT)
+        }
+        eventually { !c.checkingRoot }
+        onMain {
             c.request(target, "test", entry)
         }
         eventually { c.state is SetUiState.Failed }
@@ -168,10 +177,12 @@ class ControllerRegressionTest {
         onMain {
             c = AlarmSetController(context, backendFactory = { constructed++; error("must not construct") })
             c.selectMode(DeliveryMode.ROOT)
-            c.request(LocalTime.of(7, 30), "test", null)
         }
+        eventually { !c.checkingRoot }
         assertEquals(0, constructed)
-        assertEquals(FailureKind.UNSUPPORTED, (c.state as SetUiState.Failed).kind)
+        assertEquals(DeliveryMode.STANDARD, c.mode)
+        assertNotNull(c.rootModeError)
+        assertNull(c.lastOperation())
     }
 
     @Test fun T12_current_authorization_is_required_even_with_a_resident_backend() {
@@ -187,9 +198,12 @@ class ControllerRegressionTest {
             c = AlarmSetController(context, backendFactory = {
                 RootBackend(gateway, {}, { false }, verifyAuthorization = {
                     throw GatewayException(GatewayFailure.ROOT_DENIED, "grant revoked but old service still resident")
-                })
+                }, requestAuthorization = {})
             }, rootIdentity = { AlarmIdentity("synthetic.clock", "synthetic", 1, 0, DeliveryMode.ROOT, "fake") })
             c.selectMode(DeliveryMode.ROOT)
+        }
+        eventually { !c.checkingRoot }
+        onMain {
             c.request(LocalTime.of(7, 30), "test", null)
         }
         eventually { c.state is SetUiState.Failed }
@@ -236,6 +250,9 @@ class ControllerRegressionTest {
                 rootIdentity = { AlarmIdentity("synthetic.clock", "synthetic", 1, 0, DeliveryMode.ROOT, "fake") },
                 navigateRoot = { _, _ -> navigation++; true })
             c.selectMode(DeliveryMode.ROOT)
+        }
+        eventually { !c.checkingRoot }
+        onMain {
             c.request(target, "test", null)
         }
         eventually { c.state is SetUiState.Success }

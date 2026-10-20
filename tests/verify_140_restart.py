@@ -24,7 +24,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=True)
     seed = adb("shell", "am", "instrument", "-w", "-e", "class",
                "com.example.smartalarm.Phase140PersistenceSeedTest",
-               "com.example.smartalarm.test/androidx.test.runner.AndroidJUnitRunner").decode("utf-8")
+               "com.example.smartalarm.instrumentation/androidx.test.runner.AndroidJUnitRunner").decode("utf-8")
     assert "OK (1 test)" in seed, seed
     # The only force-stop in this script is Phase itself, never a clock package.
     adb("shell", "am", "force-stop", "com.example.smartalarm")

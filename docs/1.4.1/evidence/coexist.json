@@ -1,0 +1,12 @@
+{
+  "apk_sha256": "d103d17cee18e3fc31d63e4ac785a815d4a2a79b195b64cfbd4f8ce071a8df62",
+  "installed_apk_matches": true,
+  "old_version": "1.2.0",
+  "new_version": "1.4.1-test",
+  "old_apk_unchanged": true,
+  "old_uid_unchanged": true,
+  "old_data_marker_preserved": true,
+  "new_home_visible": true,
+  "launch": "Starting: Intent { cmp=com.example.smartalarm.test/com.example.smartalarm.MainActivity }\nWarning: Activity not started, intent has been delivered to currently running top-most instance.\nStatus: ok\nLaunchState: UNKNOWN (0)\nActivity: com.example.smartalarm.test/com.example.smartalarm.MainActivity\nTotalTime: 0\nWaitTime: 20\nComplete",
+  "limitation": "First emulator sequence recorded an old 1.2.0 focus ANR and a new-app launch timeout. After stopping the two Phase processes, the new app cold launch succeeded in 12814 ms, then this warm/readiness check succeeded. No phone execution or clock force-stop."
+}

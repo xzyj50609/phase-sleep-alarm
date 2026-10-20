@@ -67,6 +67,7 @@ internal fun SetAlarmFeedbackCard(
                 is SetUiState.Failed -> FailedBody(state, onFallback, onDismiss, allowFallback)
                 is SetUiState.AwaitingUser -> {
                     Text("已请求交给 ${state.clockName} · ${state.target.format(clockFormat)}", style = MaterialTheme.typography.labelLarge)
+                    if (state.manualTime) Text("这版时钟需要你手动填写 ${state.target.format(clockFormat)} 并保存。相位没有发送自动创建请求。")
                     Text("在时钟里保存了吗？返回相位本身不代表保存成功。")
                     Row {
                         TextButton(onClick = { onConfirm(true) }) { Text("保存了") }

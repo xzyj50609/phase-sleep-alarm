@@ -8,7 +8,11 @@ import android.provider.AlarmClock
 import com.example.smartalarm.core.interaction.*
 import java.security.MessageDigest
 
-data class ClockChoice(val label: String, val identity: AlarmIdentity, val component: String)
+data class ClockChoice(val label: String, val identity: AlarmIdentity, val component: String) {
+    // ColorOS HandleApiActivity creates immediately when HOUR is supplied, even with SKIP_UI=false.
+    val requiresManualTime: Boolean get() = identity.clockPackage == "com.coloros.alarmclock" &&
+        component == "com.oplus.alarmclock.cts.HandleApiActivity"
+}
 
 class StandardClockResolver(private val context: Context) {
     @Suppress("DEPRECATION")
@@ -33,12 +37,22 @@ class StandardClockResolver(private val context: Context) {
     }
 
     companion object {
-        fun launch(context: Context, choice: ClockChoice, hour: Int, minute: Int, label: String): Boolean = try {
-            context.startActivity(Intent(AlarmClock.ACTION_SET_ALARM)
+        internal fun createIntent(choice: ClockChoice, hour: Int, minute: Int, label: String): Intent =
+            Intent(AlarmClock.ACTION_SET_ALARM)
                 .setClassName(choice.identity.clockPackage, choice.component)
-                .putExtra(AlarmClock.EXTRA_HOUR, hour).putExtra(AlarmClock.EXTRA_MINUTES, minute)
-                .putExtra(AlarmClock.EXTRA_MESSAGE, label).putExtra(AlarmClock.EXTRA_SKIP_UI, false)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                .putExtra(AlarmClock.EXTRA_MESSAGE, label)
+                .putExtra(AlarmClock.EXTRA_SKIP_UI, false)
+                .apply {
+                    // Keep extras non-null but omit HOUR: the known receiver takes its editor branch (-1).
+                    if (!choice.requiresManualTime) {
+                        putExtra(AlarmClock.EXTRA_HOUR, hour)
+                        putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                    }
+                }
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+        fun launch(context: Context, choice: ClockChoice, hour: Int, minute: Int, label: String): Boolean = try {
+            context.startActivity(createIntent(choice, hour, minute, label))
             true
         } catch (_: android.content.ActivityNotFoundException) {
             false

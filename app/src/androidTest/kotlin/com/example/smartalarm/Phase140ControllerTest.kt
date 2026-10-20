@@ -55,11 +55,15 @@ class Phase140ControllerTest {
                 }
                 override fun enable(id: Long): Boolean = error("new alarm path")
             }
+            lateinit var controller: AlarmSetController
             main {
-                val controller = AlarmSetController(context,
+                controller = AlarmSetController(context,
                     backendFactory = { RootBackend(gateway, {}, { false }) }, rootIdentity = { identity },
                     navigateRoot = { _, _ -> true }, stateObserver = { if (it is SetUiState.Success) done.countDown() })
                 controller.selectMode(DeliveryMode.ROOT)
+            }
+            awaitRootSelection(controller)
+            main {
                 controller.requestRecommendation(recommendation, LocalTime.of(23, 47), AlarmMode.NORMAL, option)
             }
             assertTrue(done.await(10, TimeUnit.SECONDS))
@@ -96,6 +100,7 @@ class Phase140ControllerTest {
                     rootIdentity = { identity }, previousAlarmTimeoutMillis = 100)
                 controller.selectMode(DeliveryMode.ROOT)
             }
+            awaitRootSelection(controller)
             val started = System.nanoTime()
             try {
                 val result = runBlocking { withContext(Dispatchers.Main) { controller.checkPreviousAlarm(confirmed()) } }

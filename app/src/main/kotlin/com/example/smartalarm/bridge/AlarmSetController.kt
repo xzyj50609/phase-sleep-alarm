@@ -28,7 +28,7 @@ sealed interface SetUiState {
     data class Working(val target: LocalTime) : SetUiState
     data class Success(val target: LocalTime, val how: SetHow, val listNote: String? = null, val late: Boolean = false) : SetUiState
     data class Failed(val target: LocalTime, val label: String, val kind: FailureKind, val detail: String) : SetUiState
-    data class AwaitingUser(val target: LocalTime, val clockName: String) : SetUiState
+    data class AwaitingUser(val target: LocalTime, val clockName: String, val manualTime: Boolean = false) : SetUiState
     data class UserConfirmed(val target: LocalTime) : SetUiState
     data class Uncertain(val target: LocalTime, val detail: String, val running: Boolean = false) : SetUiState
     data class Choosing(val choices: List<ClockChoice>, val detail: String) : SetUiState
@@ -38,6 +38,7 @@ sealed interface SetUiState {
 internal data class RootBackend(
     val gateway: ClockGateway, val prewarm: () -> Unit, val editorOpen: () -> Boolean,
     val verifyAuthorization: () -> Unit = {}, val release: () -> Unit = {},
+    val requestAuthorization: () -> Unit = verifyAuthorization,
 )
 
 /** All public entry points and screen state changes run on the main thread. Writes share one durable gate. */
@@ -51,6 +52,7 @@ class AlarmSetController internal constructor(
     private val stateObserver: ((SetUiState) -> Unit)? = null,
     private val previousAlarmTimeoutMillis: Long = PREVIOUS_ALARM_TIMEOUT_MILLIS,
     private val nextAlarmMillis: (() -> Long?)? = null,
+    private val rootAuthorizationTimeoutMillis: Long = 45_000L,
 ) {
     private val app = context.applicationContext
     private val main = Handler(Looper.getMainLooper())
@@ -62,11 +64,13 @@ class AlarmSetController internal constructor(
     private val worker = Executors.newSingleThreadExecutor()
     private val warmer = Executors.newSingleThreadExecutor()
     private val inspector = Executors.newSingleThreadExecutor()
+    private val authorizer = Executors.newSingleThreadExecutor()
+    private var authorizationAttempt = 0
     @Volatile private var createdBackend: RootBackend? = null
     private val backend by lazy {
         (backendFactory?.invoke() ?: RootClockGateway(app).let { real ->
             RootBackend(FaultInjectingGateway.wrap(app, real), real::prewarm, real::isClockEditorOpen,
-                real::verifyAuthorization, real::release)
+                real::verifyAuthorization, real::release, real::requestAuthorization)
         }).also { createdBackend = it }
     }
     private var requestForChoice: Request? = null
@@ -76,12 +80,18 @@ class AlarmSetController internal constructor(
 
     var state: SetUiState by mutableStateOf(SetUiState.Idle)
         private set
-    var mode: DeliveryMode by mutableStateOf(prefs.mode)
+    // A saved preference is not a current grant. Restore it only after checking.
+    var mode: DeliveryMode by mutableStateOf(DeliveryMode.STANDARD)
+        private set
+    var checkingRoot: Boolean by mutableStateOf(false)
+        private set
+    var rootModeError: String? by mutableStateOf(null)
         private set
     var clockName: String by mutableStateOf(prefs.clock?.label ?: "尚未选择时钟")
         private set
+    val requiresManualTime: Boolean get() = mode == DeliveryMode.STANDARD && prefs.clock?.requiresManualTime == true
 
-    val isLocked: Boolean get() = running || storageError != null ||
+    val isLocked: Boolean get() = checkingRoot || running || storageError != null ||
         runCatching { gate.current()?.stage?.terminal == false || inFlight.load() != null }.getOrDefault(true)
 
     private data class Request(val target: LocalTime, val label: String, val log: SleepLogEntry?)
@@ -128,6 +138,10 @@ class AlarmSetController internal constructor(
     /** Does not construct or start root in ordinary mode, including restored installations. */
     fun prepare() {
         restore()
+        if (prefs.mode == DeliveryMode.ROOT && mode != DeliveryMode.ROOT && !isLocked) {
+            selectMode(DeliveryMode.ROOT)
+            return
+        }
         if (mode == DeliveryMode.ROOT && !isLocked && runCatching { checkedRootIdentity() }.isSuccess) {
             warmer.execute {
                 if (prefs.mode == DeliveryMode.ROOT) runCatching { backend.prewarm() }
@@ -140,7 +154,8 @@ class AlarmSetController internal constructor(
         try {
             val op = gate.current()
             when {
-                op?.stage == OperationStage.AWAITING_USER -> publish(SetUiState.AwaitingUser(op.time(), op.identity.clockPackage))
+                op?.stage == OperationStage.AWAITING_USER -> publish(SetUiState.AwaitingUser(op.time(), op.identity.clockPackage,
+                    op.identity.clockPackage == "com.coloros.alarmclock"))
                 op != null && !op.stage.terminal -> publish(SetUiState.Uncertain(op.time(), "上次操作结果尚未确认。请核对原时钟；相位不会重新发送。"))
                 inFlight.load() != null -> publish(SetUiState.Uncertain(LocalTime.of(inFlight.load()!!.hour, inFlight.load()!!.minute),
                     "发现旧版本未决记录，无法确定其时钟身份。请先手动核对原时钟，再结束此操作。"))
@@ -153,22 +168,68 @@ class AlarmSetController internal constructor(
     }
 
     fun selectMode(value: DeliveryMode): Boolean {
+        check(Looper.myLooper() == Looper.getMainLooper())
+        if (value == DeliveryMode.STANDARD && checkingRoot) {
+            authorizationAttempt++ // Ignore a late grant after the user cancels.
+            checkingRoot = false
+        }
         if (isLocked) return false
+        rootModeError = null
+        if (value == DeliveryMode.ROOT) {
+            if (mode == DeliveryMode.ROOT) return true
+            try {
+                checkedRootIdentity()
+            } catch (t: Exception) {
+                prefs.mode = DeliveryMode.STANDARD
+                rootModeError = t.message ?: "系统或时钟不兼容，请使用普通模式。"
+                return false
+            }
+            checkingRoot = true
+            val attempt = ++authorizationAttempt
+            main.postDelayed({
+                if (checkingRoot && authorizationAttempt == attempt) {
+                    authorizationAttempt++
+                    prefs.mode = DeliveryMode.STANDARD
+                    rootModeError = "Root 授权等待超时，仍使用普通模式。请在超级用户管理器中找到本应用并授权，再重试。"
+                    checkingRoot = false
+                }
+            }, rootAuthorizationTimeoutMillis)
+            authorizer.execute {
+                val error = runCatching { backend.requestAuthorization() }.exceptionOrNull()
+                main.post {
+                    if (attempt != authorizationAttempt) return@post
+                    if (error == null) {
+                        prefs.mode = DeliveryMode.ROOT
+                        mode = DeliveryMode.ROOT
+                        requestForChoice = null
+                        publish(SetUiState.Idle)
+                        checkingRoot = false
+                        prepare()
+                    } else {
+                        prefs.mode = DeliveryMode.STANDARD
+                        rootModeError = "未获得可用的 Root 授权，仍使用普通模式。请在超级用户管理器中找到本应用并授权，再重试。\n${error.message.orEmpty()}"
+                        checkingRoot = false
+                    }
+                }
+            }
+            return true
+        }
         prefs.mode = value
         mode = value
         if (value == DeliveryMode.STANDARD) worker.execute { createdBackend?.release?.invoke() }
         requestForChoice = null
         publish(SetUiState.Idle)
-        if (value == DeliveryMode.ROOT) prepare()
         return true
     }
 
     fun reloadPreferences() {
-        mode = prefs.mode
+        authorizationAttempt++
+        checkingRoot = false
+        mode = DeliveryMode.STANDARD
         clockName = prefs.clock?.label ?: "尚未选择时钟"
         storageError = null
         publish(SetUiState.Idle)
-        restore()
+        prepare()
     }
 
     fun chooseClock() {
@@ -257,10 +318,10 @@ class AlarmSetController internal constructor(
                 ?: StandardClockResolver.launch(app, choice, op.hour, op.minute, op.label)
         } catch (_: Exception) {
             // A lost binder reply is not proof the other Activity was never launched.
-            publish(SetUiState.AwaitingUser(request.target, choice.label + "（交接结果待核对）"))
+            publish(SetUiState.AwaitingUser(request.target, choice.label + "（交接结果待核对）", choice.requiresManualTime))
             return
         }
-        if (sent) publish(SetUiState.AwaitingUser(request.target, choice.label))
+        if (sent) publish(SetUiState.AwaitingUser(request.target, choice.label, choice.requiresManualTime))
         else {
             gate.finish(op.id, OperationStage.NOT_DISPATCHED)
             fail(request, FailureKind.REJECTED, "时钟没有接受交接，请检查时钟是否可用或重新选择。")
@@ -358,6 +419,11 @@ class AlarmSetController internal constructor(
                         publish(SetUiState.Success(op.time(), outcome.how, note, current.timedOut))
                     }
                     is SetOutcome.Failed -> {
+                        if (outcome.kind == FailureKind.ROOT_DENIED) {
+                            prefs.mode = DeliveryMode.STANDARD
+                            mode = DeliveryMode.STANDARD
+                            rootModeError = "Root 授权已失效，已回到普通模式。请在设置中重新申请授权。"
+                        }
                         val unknown = recoveryOnly || current.timedOut || inFlight.load() != null ||
                             outcome.kind in setOf(FailureKind.WRITE_UNKNOWN, FailureKind.UNKNOWN, FailureKind.UNSUPPORTED)
                         gate.finish(op.id, if (unknown) OperationStage.WRITE_UNKNOWN else OperationStage.NOT_DISPATCHED)

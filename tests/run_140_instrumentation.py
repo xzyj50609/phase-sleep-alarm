@@ -8,7 +8,7 @@ import time
 
 SAFE_CLASSES = [
     "Phase140ControllerTest", "Phase140UiTest", "ArtifactIdentityTest",
-    "ControllerRegressionTest", "StandardFlowTest", "BackupRegressionTest",
+    "ControllerRegressionTest", "StandardFlowTest", "BackupRegressionTest", "RootModePermissionTest",
 ]
 
 
@@ -28,7 +28,7 @@ def main():
     assert subprocess.check_output(base + ["shell", "getprop", "ro.hardware"]).strip() in (b"ranchu", b"goldfish")
     args.output_dir.mkdir(parents=True, exist_ok=True)
     command = base + ["shell", "am", "instrument", "-w", "-r", "-e", "expectedApkSha", args.expected_apk_sha,
-                      "-e", "class", args.classes, "com.example.smartalarm.test/androidx.test.runner.AndroidJUnitRunner"]
+                      "-e", "class", args.classes, "com.example.smartalarm.instrumentation/androidx.test.runner.AndroidJUnitRunner"]
     started = time.monotonic()
     process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, encoding="utf-8")
     lines = []

@@ -30,13 +30,16 @@ import com.example.smartalarm.ui.screen.home.chineseLabel
 import kotlin.math.roundToInt
 
 @Composable
-fun ModeSlider(selected: AlarmMode, onSelect: (AlarmMode) -> Unit) {
+fun ModeSlider(selected: AlarmMode, onSelect: (AlarmMode) -> Unit, previewPosition: Float? = null) {
     val modes = AlarmMode.entries
     val animation = remember { Animatable(selected.ordinal.toFloat()) }
     var dragging by remember { mutableStateOf(false) }
     var dragPosition by remember { mutableFloatStateOf(selected.ordinal.toFloat()) }
-    LaunchedEffect(selected, dragging) {
-        if (!dragging) animation.animateTo(selected.ordinal.toFloat(), tween(240))
+    LaunchedEffect(selected, dragging, previewPosition) {
+        if (!dragging) {
+            if (previewPosition != null) animation.snapTo(previewPosition)
+            else animation.animateTo(selected.ordinal.toFloat(), tween(240))
+        }
     }
     val density = LocalDensity.current
     val textMeasurer = rememberTextMeasurer()
@@ -52,7 +55,7 @@ fun ModeSlider(selected: AlarmMode, onSelect: (AlarmMode) -> Unit) {
                     segmentPx - with(density) { 8.dp.toPx() } }) size -= 0.5f
             size.sp
         }
-        val position = if (dragging) dragPosition else animation.value
+        val position = if (dragging) dragPosition else previewPosition ?: animation.value
         Box(Modifier.fillMaxSize().draggable(
             state = rememberDraggableState { delta ->
                 dragPosition = (dragPosition + delta / segmentPx).coerceIn(0f, modes.lastIndex.toFloat())
@@ -73,7 +76,7 @@ fun ModeSlider(selected: AlarmMode, onSelect: (AlarmMode) -> Unit) {
                     Box(Modifier.weight(1f).fillMaxHeight()
                         .selectable(selected = mode == selected, role = Role.Tab, onClick = { onSelect(mode) }),
                         contentAlignment = Alignment.Center) {
-                        val highlighted = if (dragging) position.roundToInt() == mode.ordinal else mode == selected
+                        val highlighted = if (dragging || previewPosition != null) position.roundToInt() == mode.ordinal else mode == selected
                         Text(mode.chineseLabel(), maxLines = 1, softWrap = false, fontSize = fontSize,
                             fontWeight = if (highlighted) FontWeight.SemiBold else FontWeight.Normal,
                             color = if (highlighted) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)

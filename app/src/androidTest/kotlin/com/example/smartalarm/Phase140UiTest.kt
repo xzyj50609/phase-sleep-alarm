@@ -34,19 +34,24 @@ class Phase140UiTest {
     private val device = UiDevice.getInstance(instrumentation)
     private val identity = AlarmIdentity("synthetic.clock", "fake", 1, 0, DeliveryMode.ROOT, "fake")
     private fun main(block: () -> Unit) = instrumentation.runOnMainSync(block)
-    private fun seen(selector: BySelector): UiObject2 = device.wait(Until.findObject(selector), 10_000) ?: error("Missing $selector")
+    private fun seen(selector: BySelector): UiObject2 {
+        if (android.os.Build.VERSION.SDK_INT >= 33) instrumentation.uiAutomation.clearCache()
+        return device.wait(Until.findObject(selector), 10_000) ?: error("Missing $selector")
+    }
     private fun selectedMode(label: String) = seen(By.selected(true).hasDescendant(By.text(label)))
     private fun scrollPageDown() {
         // The middle/right of the settings page contains interactive number wheels.
         val x = device.displayWidth / 12
-        device.swipe(x, device.displayHeight * 4 / 5, x, device.displayHeight / 4, 30)
+        device.swipe(x, device.displayHeight * 3 / 4, x, device.displayHeight * 9 / 20, 30)
+        device.waitForIdle()
     }
     private fun scrollTo(selector: BySelector): UiObject2 {
-        val deadline = System.currentTimeMillis() + 10_000
-        val settingsPage = device.hasObject(By.text("设置"))
-        while (!device.hasObject(selector) && System.currentTimeMillis() < deadline) {
-            if (settingsPage) scrollPageDown()
-            else device.findObject(By.scrollable(true))?.scroll(Direction.DOWN, 0.65f)
+        val deadline = System.currentTimeMillis() + 30_000
+        while (System.currentTimeMillis() < deadline) {
+            if (android.os.Build.VERSION.SDK_INT >= 33) instrumentation.uiAutomation.clearCache()
+            if (device.hasObject(selector)) break
+            // Always use the page margin: the heading may already be offscreen and wheels are scrollable too.
+            scrollPageDown()
         }
         return seen(selector)
     }
@@ -82,6 +87,7 @@ class Phase140UiTest {
                 controller.selectMode(if (root) DeliveryMode.ROOT else DeliveryMode.STANDARD)
                 field.set(null, controller)
             }
+            if (root) awaitRootSelection(controller)
             activity = instrumentation.startActivitySync(Intent(context, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
             seen(By.text("相位"))
@@ -107,7 +113,7 @@ class Phase140UiTest {
         capture("ordinary")
         seen(By.desc("设置")).click()
         scrollTo(By.text("关于相位"))
-        seen(By.textContains("1.4.0 (17)"))
+        seen(By.textContains("1.4.1 (18)"))
         capture("about")
         scrollTo(By.text("开源许可")).click()
         val content = seen(By.textContains("MIT License")).text
@@ -166,6 +172,64 @@ class Phase140UiTest {
             assertTrue(selectedMode("保早餐").isSelected)
             capture("no-animation")
         } finally { device.executeShellCommand("settings put global animator_duration_scale $oldScale") }
+    }
+
+    @Test fun card_swipes_sync_slider_and_vertical_scroll_or_cancel_do_not_switch() = withApp(false) { controller ->
+        seen(By.text("正常")).click()
+        fun swipeCard(left: Boolean) {
+            val y = seen(By.text("建议这时候醒")).visibleCenter.y + 30
+            val from = if (left) device.displayWidth * 3 / 4 else device.displayWidth / 4
+            val to = device.displayWidth - from
+            device.swipe(from, y, to, y, 25)
+            device.waitForIdle()
+        }
+        swipeCard(true)
+        assertTrue(selectedMode("爽睡").isSelected)
+        swipeCard(false)
+        assertTrue(selectedMode("正常").isSelected)
+        swipeCard(false)
+        assertTrue("first mode must not wrap", selectedMode("正常").isSelected)
+        val y = seen(By.text("建议这时候醒")).visibleCenter.y + 40
+        val downTime = SystemClock.uptimeMillis()
+        fun touch(action: Int, x: Int) {
+            val event = MotionEvent.obtain(downTime, SystemClock.uptimeMillis(), action, x.toFloat(), y.toFloat(), 0)
+            event.source = InputDevice.SOURCE_TOUCHSCREEN
+            try { assertTrue(instrumentation.uiAutomation.injectInputEvent(event, true)) } finally { event.recycle() }
+        }
+        touch(MotionEvent.ACTION_DOWN, device.displayWidth * 3 / 4)
+        for (step in 1..12) {
+            touch(MotionEvent.ACTION_MOVE, device.displayWidth * 3 / 4 - device.displayWidth * step / 24)
+            Thread.sleep(15)
+        }
+        assertTrue("preview must not commit", selectedMode("正常").isSelected)
+        capture("card-drag-preview")
+        touch(MotionEvent.ACTION_CANCEL, device.displayWidth / 4)
+        device.waitForIdle()
+        assertTrue(selectedMode("正常").isSelected)
+        device.swipe(device.displayWidth / 2, y + 250, device.displayWidth / 2, y - 100, 30)
+        device.findObject(By.scrollable(true))?.fling(Direction.UP)
+        assertTrue(selectedMode("正常").isSelected)
+        val button = scrollTo(By.text("设为系统闹钟"))
+        val buttonY = button.visibleCenter.y
+        device.swipe(device.displayWidth * 3 / 4, buttonY, device.displayWidth / 4, buttonY, 25)
+        device.waitForIdle()
+        assertNull("swiping a button must not dispatch", controller.lastOperation())
+        device.findObject(By.scrollable(true))?.fling(Direction.UP)
+        assertTrue(selectedMode("爽睡").isSelected)
+    }
+
+    @Test fun root_mode_dialog_cancel_keeps_standard_and_confirm_waits_for_admission() = withApp(false) { controller ->
+        seen(By.desc("设置")).click()
+        seen(By.text("root（实验性）")).click()
+        seen(By.text("开启实验性 root 模式？"))
+        assertEquals(DeliveryMode.STANDARD, controller.mode)
+        seen(By.text("取消")).click()
+        assertEquals(DeliveryMode.STANDARD, controller.mode)
+        seen(By.text("root（实验性）")).click()
+        seen(By.text("申请授权")).click()
+        awaitRootSelection(controller)
+        seen(By.text("✓ root（实验性）"))
+        assertNull(controller.lastOperation())
     }
 
     @Test fun ordinary_fixed_nap_has_no_hint_and_cycle_nap_uses_core_offset() = withApp(false) { controller ->

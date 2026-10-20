@@ -64,8 +64,8 @@ fun SettingsScreen(onBack: () -> Unit) {
     if (confirmRoot) AlertDialog(
         onDismissRequest = { confirmRoot = false },
         title = { Text("开启实验性 root 模式？") },
-        text = { Text("这个模式会用 root 权限直接读写系统时钟里的闹钟，只在作者的一台手机上验证过，可能出错或多出闹钟。普通使用请保持“普通”模式。") },
-        confirmButton = { TextButton(onClick = { confirmRoot = false; controller.selectMode(DeliveryMode.ROOT) }) { Text("我了解，开启") } },
+        text = { Text("这个模式会用 Root 权限直接读写系统时钟里的闹钟，属于实验性功能。继续后会检查兼容性并申请授权，只有核验成功才会切换。如果管理器不弹窗，请到超级用户管理器中为本应用授权，再回来重试。") },
+        confirmButton = { TextButton(onClick = { confirmRoot = false; controller.selectMode(DeliveryMode.ROOT) }) { Text("申请授权") } },
         dismissButton = { TextButton(onClick = { confirmRoot = false }) { Text("取消") } },
     )
 
@@ -96,18 +96,20 @@ fun SettingsScreen(onBack: () -> Unit) {
             Column(Modifier.padding(16.dp)) {
                 Text("闹钟设置方式", style = MaterialTheme.typography.titleSmall)
                 Row {
-                    TextButton(onClick = { controller.selectMode(DeliveryMode.STANDARD) }, enabled = !operationLocked) {
+                    TextButton(onClick = { controller.selectMode(DeliveryMode.STANDARD) }, enabled = !operationLocked || controller.checkingRoot) {
                         Text(if (controller.mode == DeliveryMode.STANDARD) "✓ 普通" else "普通")
                     }
                     TextButton(onClick = { if (controller.mode == DeliveryMode.ROOT) Unit else confirmRoot = true }, enabled = !operationLocked) {
                         Text(if (controller.mode == DeliveryMode.ROOT) "✓ root（实验性）" else "root（实验性）")
                     }
                 }
+                if (controller.checkingRoot) Text("正在等待 Root 授权并核验，当前仍为普通模式。可点“普通”取消。")
+                controller.rootModeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 Text(if (controller.mode == DeliveryMode.STANDARD)
                     "无需特殊权限。交给所选时钟，保存后回相位确认。"
                     else "实验性功能，普通用户请勿开启。需要 root 授权，只适配 Android 16、ColorOS 时钟 16.19.14、简体中文（中国）主用户；会通过 root 直接读写系统时钟的闹钟，当前版本没有在真实 root 手机上回归。",
                     style = MaterialTheme.typography.bodySmall)
-                if (operationLocked) Text("有操作尚未确认，请先回首页核对。")
+                if (operationLocked && !controller.checkingRoot) Text("有操作尚未确认，请先回首页核对。")
                 TextButton(onClick = { controller.chooseClock(); onBack() }, enabled = !operationLocked) {
                     Text("选择普通模式时钟 · ${controller.clockName}")
                 }

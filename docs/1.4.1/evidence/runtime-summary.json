@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "test_count": 31,
+  "bad_statuses": [],
+  "adb_exit_code": 0,
+  "expected_apk_sha256": "f99b4e1a0e0afe58945f08be58e70bfb43e1c0afedecaf9bedb77483ada7d140",
+  "observed_apk_sha256": "f99b4e1a0e0afe58945f08be58e70bfb43e1c0afedecaf9bedb77483ada7d140",
+  "elapsed_seconds": 744.55,
+  "classes": [
+    "com.example.smartalarm.Phase140ControllerTest",
+    "com.example.smartalarm.Phase140UiTest",
+    "com.example.smartalarm.ArtifactIdentityTest",
+    "com.example.smartalarm.ControllerRegressionTest",
+    "com.example.smartalarm.StandardFlowTest",
+    "com.example.smartalarm.BackupRegressionTest",
+    "com.example.smartalarm.RootModePermissionTest"
+  ]
+}

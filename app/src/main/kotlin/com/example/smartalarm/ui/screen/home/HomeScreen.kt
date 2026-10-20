@@ -63,6 +63,7 @@ import com.example.smartalarm.core.model.WakeOption
 import com.example.smartalarm.core.schedule.SleepCalculator
 import com.example.smartalarm.data.PrefsHelper
 import com.example.smartalarm.ui.component.ModeSlider
+import com.example.smartalarm.ui.component.SwipeModeCard
 import com.example.smartalarm.ui.component.NightTimeline
 import com.example.smartalarm.ui.component.QualityBadge
 import com.example.smartalarm.ui.component.QualityDot
@@ -113,6 +114,7 @@ fun HomeScreen(
 
     var selectedDelay by remember { mutableIntStateOf(prefs.lastDelay) }
     var selectedMode by remember { mutableStateOf(prefs.lastMode) }
+    var modePreview by remember { mutableStateOf<Float?>(null) }
 
     // Calibration parameters live on the settings screen; this screen leaves
     // composition while it is open, so a plain read stays current on return.
@@ -204,6 +206,8 @@ fun HomeScreen(
             )
             TextButton(onClick = { setController.showClock() }) { Text("查看闹钟") }
         }
+        if (setController.checkingRoot) Text("正在等待 Root 授权并核验，暂不发送闹钟请求。")
+        setController.rootModeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         if (timeChanged) TextButton(onClick = { timeChanged = false }) {
             Text("系统时间已变化，已重新计算；点此确认后再设置")
         }
@@ -211,6 +215,7 @@ fun HomeScreen(
         ModeSlider(
             selected = selectedMode,
             onSelect = { selectedMode = it },
+            previewPosition = modePreview,
         )
 
         RecalculationNotice(setController, System.currentTimeMillis()) {
@@ -219,19 +224,25 @@ fun HomeScreen(
             chosenLabel = null
         }
 
-        HeroCard(
-            recommendation = chosen,
-            output = output,
-            bedTime = bedTime,
-            fallAsleepMinutes = selectedDelay,
-            cycleMinutes = cycleMinutes,
-            punchTime = punchTime.takeIf { punchEnabled },
-            isSetting = setState is SetUiState.Working,
-            submitBlocked = setController.isLocked,
-            onCreateAlarm = { requestAlarm(chosen) },
-            rootMode = setController.mode == DeliveryMode.ROOT,
-            onChooseOption = { requestAlarm(chosen, it) },
+        if (setController.requiresManualTime) Text(
+            "这版 ColorOS 时钟需手动填时间。点下方按钮打开新建页后，请设为 ${chosen.wakeUpTime.format(timeFormatter)} 并保存。",
+            style = MaterialTheme.typography.bodySmall,
         )
+        SwipeModeCard(selectedMode, { selectedMode = it }, { modePreview = it }) {
+            HeroCard(
+                recommendation = chosen,
+                output = output,
+                bedTime = bedTime,
+                fallAsleepMinutes = selectedDelay,
+                cycleMinutes = cycleMinutes,
+                punchTime = punchTime.takeIf { punchEnabled },
+                isSetting = setState is SetUiState.Working,
+                submitBlocked = setController.isLocked,
+                onCreateAlarm = { requestAlarm(chosen) },
+                rootMode = setController.mode == DeliveryMode.ROOT,
+                onChooseOption = { requestAlarm(chosen, it) },
+            )
+        }
 
         SetAlarmFeedbackCard(
             state = setState,

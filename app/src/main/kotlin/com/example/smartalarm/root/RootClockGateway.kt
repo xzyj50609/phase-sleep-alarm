@@ -47,9 +47,13 @@ class RootClockGateway(context: Context) : ClockGateway {
     }
 
     /** A resident UID-0 Binder does not prove the manager still grants this app root. */
-    fun verifyAuthorization() {
+    fun requestAuthorization() = verifyAuthorization(30)
+
+    fun verifyAuthorization() = verifyAuthorization(6)
+
+    private fun verifyAuthorization(timeoutSeconds: Long) {
         try {
-            Shell.Builder.create().setTimeout(6).build().use { fresh ->
+            Shell.Builder.create().setTimeout(timeoutSeconds).build().use { fresh ->
                 if (!fresh.isRoot) {
                     release()
                     rootConfirmed = false
